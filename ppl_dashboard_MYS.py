@@ -485,16 +485,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     elif report_type =="TFP" :
         db_cols = {'Article': ['CODE SKU', 'cno_sku'], 'NAV': ['NAV CODE', 'id'], 'ArtDesc': ['Description', 'name1'], 'NavDesc': ['Item No/SKU', 'name2'], 'UOM': ['UOM']}
         sales_cols = {'Article': ['SKU NO', '1st Column'], 'Qty': ['Qty Sold', 'Quantity'], 'Val': ['Net Excl Tax', 'Amount'], 'Store': ['Location'], 'Date': ['Sales Date', 'TRXDATE'], 'Name': ['Item']}
-        dist_cols = {
-            'NAV': ['Item No.', 'Item No'], 
-            'Qty': [r'Quantity'], 
-            'Store': ['External Document No.', 'External Document No'], 
-            'UOM': ['Unit Of Measure Code', 'UOM'], 
-            'Name': ['USOFT product description', 'Description'], 
-            'Cost': ['Price', 'COST', 'Unit Price'], 
-            'Date': ['Posting Date', 'Date'], 
-            'Chain': ['Customer Remark', 'Customer Remark客戶代號']
-        }
+        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
         waste_cols = {'NAV': ['NAV_CODE', 'NAV'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['LONG_NAME', 'Store'], 'Val': ['TOT_AMT', 'Amount'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
     elif report_type =="TFP DF" :
         db_cols = {'Article': ['CODE SKU', 'cno_sku'], 'NAV': ['NAV CODE', 'id'], 'ArtDesc': ['Description', 'name1'], 'NavDesc': ['Item No/SKU', 'name2'], 'UOM': ['UOM']}
@@ -796,7 +787,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         df_dist['Month'] = "Annual"
         df_dist['Week'] = "Annual"
         
-    if report_type == 'AEON DF' or report_type == 'TFP DF' or report_type == 'TFP':
+    if report_type == 'AEON DF' or report_type == 'TFP DF':
         if 'UOM' in df_dist.columns:
             raw_qty = pd.to_numeric(df_dist['Qty'], errors='coerce').fillna(0)
             uom_factor = df_dist['UOM'].apply(parse_uom_factor)
