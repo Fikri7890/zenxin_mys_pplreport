@@ -81,6 +81,7 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'AEON TAIPING': return 'Aeon Taiping-PRK'
         if name == 'AEON TAIPING-PRK': return 'Aeon Taiping-PRK'
         if name == 'AMPANG UTARA 2': return 'Aeon Ampang Utara 2-KUL'
+        if name == 'AEON AMPANG UTARA 2-KUL' : return 'Aeon Ampang Utara 2-KUL'
         if name == 'BANDAR BARU KLANG': return 'Aeon Bandar Baru Klang-KUL'
         if name == 'AEON BANDAR BARU KLANG-KUL': return 'Aeon Bandar Baru Klang-KUL'
         if name == 'BANDAR PUCHONG': return 'Aeon Puchong-KUL'
@@ -113,17 +114,21 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'AEON CHERAS SELATAN-KUL HC000020-1014': return 'Aeon Cheras Selatan-KUL'
         if name == 'IOI PUTRAJAYA': return 'Aeon Putrajaya IOI-KUL'
         if name == 'AEON PUTRAJAYA-KUL': return 'Aeon Putrajaya IOI-KUL'
+        if name == 'AEON IOI PUTRAJAYA-KUL' : return 'Aeon Putrajaya IOI-KUL'
         if name == 'IPOH E-COMMERCE': return 'Aeon Old Ipoh-PRK'
         if name == 'AEON OLD IPOH-PRK': return 'Aeon Old Ipoh-PRK'
         if name == 'IPOH STATION 18': return 'Aeon New Ipoh-PRK'
         if name == 'AEON NEW IPOH-PRK': return 'Aeon New Ipoh-PRK'
+        if name == 'AEON NEW IPOH-PRK (STATION 18)' : return 'Aeon New Ipoh-PRK'
         if name == 'IPOH STORE': return 'Aeon Old Ipoh-PRK'
+        if name == 'AEON OLD IPOH-PRK (IPOH STORE)' : return 'Aeon Old Ipoh-PRK'
         if name == 'KOTA BAHRU E-COMMERCE': return 'Aeon Kota Bahru-KTN'
         if name == 'KULAI': return 'Aeon Kulai Jaya-JHR'
         if name == 'KULAI E-COMMERCE': return 'Aeon Kulai Jaya-JHR'
         if name == 'MAXVALU DANGA BAY': return 'Aeon Maxvalu Danga Bay'
         if name == 'AEON MAXVALU DANGA BAY': return 'Aeon Maxvalu Danga Bay'
         if name == 'MAXVALU PRIME DPC': return 'Aeon Maxvalu DPC-KUL'
+        if name == 'AEON MAXVALU PRIME DPC-KUL' : return 'Aeon Maxvalu DPC-KUL'
         if name == 'AEON MAXVALU DPC-KUL HC000020-3020': return 'Aeon Maxvalu DPC-KUL'
         if name == 'AEON MAXVALU DPC-KUL': return 'Aeon Maxvalu DPC-KUL'
         if name == 'MELAKA': return 'Aeon Old JJ-MLK'
@@ -161,6 +166,9 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'SHAH ALAM E-COMMERCE': return 'Aeon Shah Alam-KUL'
         if name == 'AEON SHAH ALAM-KUL': return 'Aeon Shah Alam-KUL'
         if name == 'SUNWAY VELOCITY': return 'Aeon Maxvalu Velocity-KUL'
+        if name == 'AEON MAXVALU VELOCITY-KUL' : return 'Aeon Maxvalu Velocity-KUL'
+        if name == 'XXX AEON MAXVALU DPC-KUL' : return 'Aeon Maxvalu Velocity-KUL'
+        if name == 'AEON SUNWAY VELOCITY-KUL' : return 'Aeon Maxvalu Velocity-KUL'
         if name == 'TAIPING': return 'Aeon Taiping-PRK'
         if name == 'TAIPING E-COMMERCE': return 'Aeon Taiping-PRK'
         if name == 'TAMAN EQUINE': return 'Aeon Taman Equine-KUL'
@@ -175,6 +183,7 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'AEON TEBRAU-JHR': return 'Aeon Tebrau-JHR'
         if name == 'WANGSA MAJU': return 'Aeon Wangsa Maju-KUL'
         if name == 'AEON WANGSA MAJU-KUL': return 'Aeon Wangsa Maju-KUL'
+        if name == 'AEON MAXVALU DANGA BAY-JHR': return 'Aeon Maxvalu Danga Bay'
 
         return name
 
@@ -227,6 +236,7 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'VG MONT KIARA (VGO)-KUL HC001500-3001': return 'VG Mont Kiara (VGO)-KUL'
         if name == '3 VG MONT KIARA (VGO)-KUL': return 'VG Mont Kiara (VGO)-KUL'
         if name == 'VHS - HARTAMAS SHOPPING CENTER': return 'VG Sri Hartamas (VHS)-KUL'
+        if name == 'VG SRI HARTAMAS (VHS)-KUL' : return 'VG Sri Hartamas (VHS)-KUL'
         if name == 'VIK - IOI MALL KULAI': return 'VG IOI Mall Kulai (VIK)-JHR'
         if name == 'VG IOI Mall Kulai (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
         if name == 'VG IOI MALL KULAI (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
@@ -241,9 +251,11 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'VG MYRA PARK MARKETPLACE-KUL HC001500-4013': return 'VG Myra Park Marketplace-KUL'
         if name == 'VG MYRA PARK MARKETPLACE-KUL': return 'VG Myra Park Marketplace-KUL'
         if name == 'VMT - MYTOWN': return 'VG My Town-KUL'
+        if name == 'VG MY TOWN-KUL': return 'VG My Town-KUL'
         if name == 'VPM - PARADIGM MALL JB': return 'VG Paradigm Mall (VPM)-JHR'
         if name == 'VG PARADIGM MALL (VPM)-JHR': return 'VG Paradigm Mall (VPM)-JHR'
         if name == 'VPS - 168 PARK SELAYANG': return 'VG Selayang 168-KUL'
+        if name == 'VG SELAYANG 168-KUL' : return 'VG Selayang 168-KUL'
         if name == 'VQW - QUEENS WATERFRONT PENANG': return 'VG Queen (VQW)-PNG'
         if name == 'VG QUEEN (VQW)-PNG': return 'VG Queen (VQW)-PNG'
         if name == 'VSK - SOUTHKEY': return 'VG Midvalley Southkey (VSK)-JHR'
@@ -252,7 +264,10 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
         if name == '2 VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
         if name == 'VSQ - SUNWAY SQUARE': return 'VG Sunway Square Mall (VSQ)-KUL'
+        if name == 'VG SUNWAY SQUARE MALL (VSQ)-KUL' : return 'VG Sunway Square Mall (VSQ)-KUL'
         if name == 'VSS - SIERRA FRESCO': return 'VG Sierras Fresco-KUL'
+        if name == 'VG SIERRAS FRESCO (VSS)-KUL' : return 'VG Sierras Fresco-KUL'
+        if name == 'VG SIERRAS FRESCO-KUL' : return 'VG Sierras Fresco-KUL'
         if name == 'VTS - TAMARIND SQUARE': return 'VG Tamarind Square (VTS)-KUL'
         if name == 'VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
         if name == 'VG TAMARIND SQUARE (VTS)-KUL HC001500-4016': return 'VG Tamarind Square (VTS)-KUL'
@@ -320,56 +335,6 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'MP HILLVIEW-PM' : return 'MP HILLVIEW'
         if name == 'PASIR RIS MALL' : return 'CS PASIR RIS MALL'
         if name == 'SUNTEC CITY' : return 'CS SUNTEC CITY'
-        return name
-    
-    elif report_type == 'SS_DRY':
-        if name  == 'AJ': return 'SS ALJUNIED 118'
-        if 'AJA118' in name: return 'SS ALJUNIED 118'
-        if name == 'BC': return 'SS BEDOK 209'
-        if name == 'BS': return 'SS BEDOK 151'
-        if name == 'BH': return 'SS BISHAN 512'
-        if name == 'EM': return 'SS ELIAS MALL'
-        if name == 'HG': return 'SS HOUGANG 377'
-        if name == 'J9': return 'SS JUNCTION NINE'
-        if name == 'JT': return 'SS JUNCTION TEN'
-        if name == 'KL': return 'SS KALLANG'
-        if name == 'KN': return 'SS KINEX'
-        if name == 'CT': return 'SS THE CATHAY'
-        if name == 'TH': return 'SS TANGLIN HALT 88'
-        if name == 'TC': return 'SS TAMPINES CENTRAL 506'
-        if name == 'TY': return 'SS TOA PAYOH 181'
-        if name == 'W5': return 'SS WOODLANDS 573E'
-        if name == 'TOTAL' : return 'UNKNOWN'
-        return name
-    
-    elif report_type == 'NTUC_DRY':
-        name = re.sub(r'^\d+\s*-\s*', '', name)
-        name = name.replace('FPX-', '').strip()
-        if name == 'BUKIT TIMAH PLAZA-PM' : return 'BUKIT TIMAH PLAZA'
-        if name == 'CLEMENTI MALL-PM' : return 'CLEMENTI MALL'
-        if name == 'FUNAN-PM' : return 'FUNAN'
-        if name == 'BALMORAL PLAZA-PM' : return 'BALMORAL PLAZA'
-        if name == 'BEDOK MALL-APM' : return 'BEDOK MALL'
-        if name == 'CLEMENTI MALL FINEST' : return 'CLEMENTI MALL'
-        if name == 'FINEST @ THE WOODLEIGH MALL' : return 'WOODLEIGH MALL'
-        if name == 'BEDOK MALL FINEST' : return 'BEDOK MALL'
-        if name == 'FINEST @SCOTTS SQUARE' :return 'SCOTTS SQUARE'
-        if name == 'WOODLANDS CAUSEWAY POINT' : return 'CAUSEWAY POINT'
-        if name == 'HOUGANG A' : return 'HOUGANG A 202'
-        if name == 'SENGKANG GRAND' : return 'SENGKANG GRAND MALL'
-        if name == 'FINEST @VALLEY POINT' : return 'VALLEY POINT FINEST'
-        if name == 'YEW TEE MRT FINEST' : return 'YEW TEE MRT'
-        if name == 'ANG MO KIO BLK 712 (B)' : return 'ANG MO KIO BLK712'
-        if name == 'CENTURY SQUARE FINEST': return 'CENTURY SQUARE'
-        if name == 'RAFFLES HOLLAND V HALL' : return 'RAFFLES HOLLAND V'
-        if name == 'DAIRY FARM RESIDENCES FINEST' : return 'DFARM'
-        if name == 'JEWEL CHANGI AIRPORT .' : return 'JEWEL'
-        if name == 'KOMO SHOPPES FINEST' : return 'KOMO' 
-        if name == 'CORONATION PLAZA BUKIT TIMAH': return 'CORONATION PLAZA'
-        if name == 'WHITESANDS' : return 'WHITE SANDS'
-        if name == 'VIVO CITY HYPER-PM' : return 'VIVO CITY HYPER'
-        if name == 'PARKWAY PARADE-PM': return 'HYPER PARKWAY PARADE'
-        if name == 'ZHONGSHAN PARK': return 'ZHONG SHAN PARK'
         return name
     
     return name
@@ -456,7 +421,7 @@ def find_correct_header_row(df_in, required_map, source_name="File"):
 
 # --- 3. MAIN PROCESS DATA FUNCTION ---
 @st.cache_data
-def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type,df_uom_raw=None):
+def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type,df_uom_raw=None,df_dist2_raw=None):
     master_name_map = {}
     nav_to_article_map = {} 
 
@@ -471,15 +436,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     elif report_type == "AEON DF":
         db_cols = {'Article': ['ITEM CODE', 'ITEMCODE'], 'NAV': ['NAV code', 'NAV_CODE', 'No.'], 'ArtDesc': ['NAV Description', 'Description'], 'NavDesc': ['Aeon Item code', 'ArticleDesc'],'UOM': ['UOM PKT/KG (NAV)', 'UOM'], 'RSP': ['RSP']}
         sales_cols ={'Article': ['Article', 'ITEM CODE'], 'Qty': ['SALES QTY','QTY','SALESQTY','Billed Quantity'], 'Val': ['TOTAL SALES','SALESAMOUNT','Total Amount'], 'Store': ['STORE NAME'], 'Date': ['SELLING DATE'], 'Name': ['ITEM DESCRIPTION']}
-        dist_cols = {
-            'NAV': ['Item No.', 'Item No'], 
-            'Qty': ['Quantity', 'QTY'], 
-            'Store': ['Customer Remark', 'Customer Remark客戶代號'], # 👈 Fix is here
-            'UOM': ['Unit Of Measure Code'], 
-            'Name': ['USOFT product description'], 
-            'Date': ['Posting Date'], 
-            'Chain': ['External Document No.', 'External Document No']
-        }
+        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
         waste_cols = {'NAV': ['NAV', 'NAV_CODE'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['Store', 'LONG_NAME'], 'Val': ['Amount', 'TOT_AMT'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
 
     elif report_type =="TFP" :
@@ -490,16 +447,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     elif report_type =="TFP DF" :
         db_cols = {'Article': ['CODE SKU', 'cno_sku'], 'NAV': ['NAV CODE', 'id'], 'ArtDesc': ['Description', 'name1'], 'NavDesc': ['Item No/SKU', 'name2'], 'UOM': ['UOM']}
         sales_cols = {'Article': ['SKU NO', '1st Column'], 'Qty': ['Qty Sold', 'Quantity'], 'Val': ['Net Excl Tax', 'Amount'], 'Store': ['Location'], 'Date': ['Sales Date', 'TRXDATE'], 'Name': ['Item']}
-        dist_cols = {
-            'NAV': ['Item No.', 'Item No'], 
-            'Qty': ['Quantity', 'QTY'], 
-            'Store': ['Customer Remark', 'Customer Remark客戶代號'], 
-            'UOM': ['Unit Of Measure Code', 'UOM'], 
-            'Name': ['USOFT product description', 'Description'], 
-            'Cost': ['Price', 'COST', 'Unit Price'], 
-            'Date': ['Posting Date', 'Date'], 
-            'Chain': ['External Document No.', 'External Document No']
-        }
+        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
         waste_cols = {'NAV': ['NAV_CODE', 'NAV'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['LONG_NAME', 'Store'], 'Val': ['TOT_AMT', 'Amount'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
     
     elif report_type == "CS_DRY":
@@ -726,12 +674,49 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
 
     # --- C. DISTRIBUTION -
     # d_map = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Your Reference', 'key'], 'UOM': ['Unit of Measure', 'UOM'], 'Name': ['USOFT product description', 'Description', 'Name'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date','Date'], 'Chain': ['Customer']}
+    
     df_dist = find_correct_header_row(df_dist_raw, dist_cols, "Dist Sheet")
     if df_dist is None: return None
     df_dist = strict_rename(df_dist, dist_cols)
     
+
+    if 'Date' in df_dist.columns:
+        df_dist['Date'] = pd.to_datetime(df_dist['Date'], errors='coerce', dayfirst=False)
+
+    # 2. Process the second Distribution Sheet (Item Ledger Entries)
+    if df_dist2_raw is not None and not df_dist2_raw.empty:
+        # ⚠️ CRITICAL: Only map 'Location Name' to Store so it doesn't grab the empty 'Ship-to Name'
+        dist2_cols = {
+            'NAV': ['Item No.'], 
+            'Qty': ['Quantity'], 
+            'Store': ['Location Name'], 
+            'UOM': ['Unit of Measure Code'], 
+            'Name': ['Item Description'], 
+            'Cost': ['Cost Amount (Actual)'], 
+            'Date': ['Posting Date'], 
+            'Chain': ['Source No.']
+        }
+        
+        df_dist2 = find_correct_header_row(df_dist2_raw, dist2_cols, "Dist Sheet 2")
+        if df_dist2 is not None:
+            df_dist2 = strict_rename(df_dist2, dist2_cols)
+            
+            # Standardize Date for the second sheet
+            if 'Date' in df_dist2.columns:
+                df_dist2['Date'] = pd.to_datetime(df_dist2['Date'], format='%m/%d/%Y', errors='coerce')
+                
+            # ⚠️ CRITICAL: Item Ledger uses negative quantities for store transfers. Convert to absolute values!
+            if 'Qty' in df_dist2.columns:
+                df_dist2['Qty'] = pd.to_numeric(df_dist2['Qty'], errors='coerce').abs()
+            
+            if 'Cost' in df_dist2.columns:
+                df_dist2['Cost'] = df_dist2['Cost'].apply(clean_currency)/df_dist2['Qty'].replace(0, 1)  # Avoid division by zero
+                
+            # Concatenate the second sheet into the main distribution dataframe safely
+            df_dist = pd.concat([df_dist, df_dist2], ignore_index=True)
+    
     if 'Store' in df_dist.columns:
-        if report_type =='AEON' or report_type == 'AEON_DF':
+        if report_type =='AEON' or report_type == 'AEON DF':
             mask = df_dist['Store'].astype(str).str.upper().str.contains('AEON|JUSCO|MAXVALU', regex=True, na=False)
             df_dist=df_dist[mask]
         elif report_type == 'TFP' or report_type == 'TFP DF':
@@ -749,10 +734,6 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         elif report_type == 'NTUC_DRY':
             mask = df_dist['Chain'].astype(str).str.upper().str.contains(r'NC', regex=True, na=False)
             df_dist = df_dist[mask]
-        
-
-
-       
 
     
     if 'Chain' in df_dist.columns and 'Store' not in df_dist.columns:
@@ -776,31 +757,20 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     print("-----------------------------\n")
     
 
-    if report_type == 'AEON DF':
-        # AEON DF doesn't have Cost in Dist file. Map RSP from Database using Final_Name
-        temp_item_names = df_dist['NAV'].map(df_db.set_index('NAV')['Final_Name'].to_dict())
-        cost = temp_item_names.map(rsp_mapping).fillna(0.0)
-    else:
+    
         # Other systems use the Cost column
-        cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0.0
+    cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0.0
     if report_type == 'SS_DRY':
         df_dist['Month'] = "Annual"
         df_dist['Week'] = "Annual"
         
-    if report_type == 'AEON DF' or report_type == 'TFP DF':
-        if 'UOM' in df_dist.columns:
-            raw_qty = pd.to_numeric(df_dist['Qty'], errors='coerce').fillna(0)
-            uom_factor = df_dist['UOM'].apply(parse_uom_factor)
-            df_dist['Qty'] = raw_qty * uom_factor 
-            cost = df_sales['Val']/df_sales['Qty'].apply(clean_currency) # Avoid division by zero
-            df_dist['Val'] = df_dist['Qty'] * cost
-    else:
-        if 'UOM' in df_dist.columns:
-            raw_qty = pd.to_numeric(df_dist['Qty'], errors='coerce').fillna(0)
-            uom_factor = df_dist['UOM'].apply(parse_uom_factor)
-            df_dist['Qty'] = raw_qty * uom_factor 
-            cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0
-            df_dist['Val'] = df_dist['Qty'] * cost
+    
+    if 'UOM' in df_dist.columns:
+        raw_qty = pd.to_numeric(df_dist['Qty'], errors='coerce').fillna(0)
+        uom_factor = df_dist['UOM'].apply(parse_uom_factor)
+        df_dist['Qty'] = raw_qty * uom_factor 
+        cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0
+        df_dist['Val'] = df_dist['Qty'] * cost
    
 
     # --- D. WASTAGE ---
@@ -881,6 +851,7 @@ def main_app_interface(authenticator, name, permissions):
                     's': make_url(st.secrets["sheet_ids"]["aeon_dry_sales"]),
                     'db': make_url(st.secrets["sheet_ids"]["aeon_dry_db"]),
                     'd': make_url(st.secrets["sheet_ids"]["aeon_dry_dist"]),
+                    'd2': make_url(st.secrets["sheet_ids"]["aeon_dry_dist_2"]),
                     'w': make_url(st.secrets["sheet_ids"]["aeon_dry_waste"]),
                     'h': make_url(st.secrets["sheet_ids"]["aeon_dry_history"])
                 }
@@ -905,6 +876,7 @@ def main_app_interface(authenticator, name, permissions):
                     's': make_url(st.secrets["sheet_ids"]["tfp_dry_sales"]),
                     'db': make_url(st.secrets["sheet_ids"]["tfp_dry_db"]),
                     'd': make_url(st.secrets["sheet_ids"]["tfp_dry_dist"]),
+                    'd2': make_url(st.secrets["sheet_ids"]["aeon_dry_dist_2"]),
                     'w': make_url(st.secrets["sheet_ids"]["tfp_dry_waste"]),
                     'h': make_url(st.secrets["sheet_ids"]["tfp_dry_history"])                
                     }
@@ -952,12 +924,13 @@ def main_app_interface(authenticator, name, permissions):
             r_s = load_google_sheet(urls['s'])
             r_db = load_google_sheet(urls['db'])
             r_d = load_google_sheet(urls['d'])
+            r_d2 = load_google_sheet(urls['d2']) if 'd2' in urls and urls['d2'] else None
             # Only load wastage file if not CS_DRY
             r_uom = load_google_sheet(urls['db'], "UOM") if rpt == "AEON" or rpt == "AEON DF" else None
             r_w = None if rpt == "CS_DRY" or rpt == "SS_DRY" else load_google_sheet(urls['w'])
 
             if r_s is not None and r_d is not None:
-                res = process_data(r_s, r_db, r_d, r_w, rpt,r_uom)
+                res = process_data(r_s, r_db, r_d, r_w, rpt,r_uom,r_d2)
                 if res:
                     # 1. Variables are defined here
                     df_s, df_d, df_w, map_name, map_art, _, update_info = res
