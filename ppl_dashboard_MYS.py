@@ -203,6 +203,9 @@ def normalize_store_name(name, report_type='AEON'):
         if name == "VG BEN'S PUBLIKA (BPS)-KUL HC001500-4001": return "VG Ben's Publika (BPS)-KUL"
         if name == 'BSC - BSC FINE FOODS': return "VG Ben's (BSC)-KUL"
         if name == "VG BEN'S (BSC)-KUL": return "VG Ben's (BSC)-KUL"
+        if name == "VG BEN'S BATAI (BBT)-KUL HC001500-4002": return "VG Ben's (BSC)-KUL"
+        if name == "VG BEN'S (BSC)-KUL HC001500-4011" : return "VG Ben's (BSC)-KUL"
+        if name == "VG Ben's Batai (BBT)-KUL" : return  "VG Ben's (BSC)-KUL"
         if name == 'LGC - LEISURE MALL': return 'VG Leisure Mall (LGC)-KUL'
         if name == 'VG LEISURE MALL (LGC)-KUL HC001500-3019': return 'VG Leisure Mall (LGC)-KUL'
         if name == 'VG LEISURE MALL (LGC)-KUL': return 'VG Leisure Mall (LGC)-KUL'
@@ -276,6 +279,9 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
         if name == 'VG TAMARIND SQUARE (VTS)-KUL HC001500-4016': return 'VG Tamarind Square (VTS)-KUL'
         if name == 'XXX VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
+        if name == 'VBM - BUKIT MERTAJAM': return 'VG Vangohh Eminent (VBM)-PNG'
+        if name == 'VG VANGOHH EMINENT (VBM)-PNG' : return 'VG Vangohh Eminent (VBM)-PNG'
+
         return name
     
     elif report_type == 'NTUC':
@@ -650,8 +656,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
             # Extract attributes only for rows where date parsing succeeded
             df_sales['Year'] = df_sales['Date'].dt.year.astype('Int64').astype(str)
             df_sales['Month'] = df_sales['Date'].dt.month_name().str[:3]
-            df_sales['Week'] = df_sales['Date'].dt.strftime('%Y-W%U')
-
+            df_sales['Week'] = df_sales['Date'].apply(lambda x: f"{x.strftime('%Y')}-W{(int(x.strftime('%U')) + 1):02d}" if pd.notnull(x) else None)
         elif report_type == 'SS':
             # Sheng Siong: 09-12-2025 (Day-Month-Year)
             df_sales['Date'] = pd.to_datetime(df_sales['Date'], dayfirst=True, errors='coerce')
@@ -754,7 +759,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     df_dist['Date'] = pd.to_datetime(df_dist['Date'], errors='coerce')
     df_dist['Year'] = df_dist['Date'].dt.year.astype(str).str.replace(r'\.0$', '', regex=True)
     df_dist['Month'] = df_dist['Date'].dt.month_name().str[:3]
-    df_dist['Week'] = df_dist['Date'].dt.strftime('%Y-W%U')
+    df_dist['Week'] = df_dist['Date'].apply(lambda x: f"{x.strftime('%Y')}-W{(int(x.strftime('%U')) + 1):02d}" if pd.notnull(x) else None)
     df_dist['Qty'] = df_dist['Qty'].apply(clean_currency)
     print("\n--- Distribution MAPPING PREVIEW ---")
     print(df_dist[['Store', 'NAV', 'Qty','Date']].head(5))
@@ -801,7 +806,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         df_waste['Date'] = pd.to_datetime(df_waste['Date'], dayfirst=True, errors='coerce')
         df_waste['Year'] = df_waste['Date'].dt.year.astype(str).replace(r'\.0$', '', regex=True)
         df_waste['Month'] = df_waste['Date'].dt.month_name().str[:3]
-        df_waste['Week'] = df_waste['Date'].dt.strftime('%Y-W%U')
+        df_waste['Week'] = df_waste['Date'].apply(lambda x: f"{x.strftime('%Y')}-W{(int(x.strftime('%U')) + 1):02d}" if pd.notnull(x) else None)
         qty_units = df_waste['Qty'].apply(clean_currency)
         weight_kg = df_waste['Weight'].apply(clean_currency)
         df_waste['Qty'] = qty_units * weight_kg
