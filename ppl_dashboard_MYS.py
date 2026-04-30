@@ -608,17 +608,21 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         df_sales.loc[mask_total, 'Val'] = 0.0
     
     df_sales['Article'] = df_sales['Article'].apply(clean_id)
-    df_sales['NAV'] = df_sales['Article'].map(db_mapping_forward).fillna("0")
+    #df_sales['NAV'] = df_sales['Article'].map(db_mapping_forward).fillna("0")
+    df_sales['NAV'] = df_sales['Article'].map(db_mapping_forward).fillna(df_sales['Article'])
 
     print("\n--- SALES MAPPING PREVIEW ---")
     print(df_sales[['Store', 'Article', 'NAV', 'Qty', 'Val','Date']].head(5))
     print("-----------------------------\n")
+    #if 'Name' in df_sales.columns:
+    #   sales_names = df_sales[df_sales['NAV'] != "0"].set_index('NAV')['Name'].to_dict()
     if 'Name' in df_sales.columns:
-        sales_names = df_sales[df_sales['NAV'] != "0"].set_index('NAV')['Name'].to_dict()
+        # Grab the names for ALL items, even unmapped ones
+        sales_names = df_sales.set_index('NAV')['Name'].to_dict()
         for k, v in sales_names.items():
             if k not in master_name_map: master_name_map[k] = v
      
-    df_sales = df_sales[df_sales['NAV'] != "0"]
+    #df_sales = df_sales[df_sales['NAV'] != "0"]
     df_sales['Store'] = df_sales['Store'].apply(lambda x: normalize_store_name(x, report_type))
     df_sales['Qty'] = df_sales['Qty'].apply(clean_currency)
     df_sales['Val'] = df_sales['Val'].apply(clean_currency)
