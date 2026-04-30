@@ -88,6 +88,7 @@ def normalize_store_name(name, report_type='AEON'):
         if name == 'AEON IOI PUCHONG-KUL': return 'Aeon Puchong-KUL'
         if name == 'AEON PUCHONG-KUL' : return 'Aeon Puchong-KUL'
         if name == 'BANDAR PUCHONG E-COMMERCE': return 'Aeon Puchong-KUL'
+        if name == 'AEON PUCHONG-KUL HC000020-1008': return 'Aeon Puchong-KUL'
         if name == 'BANDAR UTAMA': return 'Aeon Bandar Utama-KUL'
         if name == 'BANDAR UTAMA E-COMMERCE': return 'Aeon Bandar Utama-KUL'
         if name == '2 AEON BANDAR UTAMA-KUL': return 'Aeon Bandar Utama-KUL'
