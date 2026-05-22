@@ -325,6 +325,7 @@ def find_correct_header_row(df_in, required_map, source_name="File"):
 @st.cache_data
 def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type,df_uom_raw=None,df_dist2_raw=None,df_loc_raw=None):
     master_name_map = {}
+    df_dist2 = pd.DataFrame()
     nav_to_article_map = {} 
 
     if report_type =="AEON":
@@ -640,21 +641,15 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         }
         
         df_dist2 = find_correct_header_row(df_dist2_raw, dist2_cols, "Dist Sheet 2")
+        
         if df_dist2 is not None:
             df_dist2 = strict_rename(df_dist2, dist2_cols)
-            
-            # Standardize Date for the second sheet
             if 'Date' in df_dist2.columns:
                 df_dist2['Date'] = pd.to_datetime(df_dist2['Date'], format='%m/%d/%Y', errors='coerce')
-                
-            # ⚠️ CRITICAL: Item Ledger uses negative quantities for store transfers. Convert to absolute values!
             if 'Qty' in df_dist2.columns:
                 df_dist2['Qty'] = pd.to_numeric(df_dist2['Qty'], errors='coerce').abs()
-            
             if 'Cost' in df_dist2.columns:
-                df_dist2['Cost'] = df_dist2['Cost'].apply(clean_currency)/df_dist2['Qty'].replace(0, 1)  # Avoid division by zero
-                
-            # Concatenate the second sheet into the main distribution dataframe safely
+                df_dist2['Cost'] = df_dist2['Cost'].apply(clean_currency)/df_dist2['Qty'].replace(0, 1)
             df_dist = pd.concat([df_dist, df_dist2], ignore_index=True)
     
     if 'Store' in df_dist.columns:
@@ -755,6 +750,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     update_info = {
         "Sales": get_max_date(df_sales),
         "Dist": get_max_date(df_dist),
+        "Dist2": get_max_date(df_dist2) if not df_dist2.empty else "N/A",
         "Waste": get_max_date(df_waste)
     }
 
@@ -892,7 +888,7 @@ def main_app_interface(authenticator, name, permissions):
 
                     
                     st.caption(f"""
-                    **Last Data Updates:** 🛒 Sales: **{update_info['Sales']}** |  🚚 Dist: **{update_info['Dist']}** |  🗑️ Waste: **{update_info['Waste']}**
+                    **Last Data Updates:** 🛒 Sales: **{update_info['Sales']}** | 🚚 Dist: **{update_info['Dist']}** | 📝 Ledger: **{update_info.get('Dist2', 'N/A')}** | 🗑️ Waste: **{update_info['Waste']}**
                     """)
                     
                     st.sidebar.markdown("---")
