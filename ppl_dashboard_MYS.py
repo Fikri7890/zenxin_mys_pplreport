@@ -58,232 +58,123 @@ def get_saved_reports(url):
     except: return []
 
 # --- 2. DATA PROCESSING HELPERS ---
-def normalize_store_name(name, report_type='AEON'):
+def normalize_store_name(name, report_type='AEON', loc_map=None):
     if pd.isna(name): return "UNKNOWN"
-    name = str(name).upper().strip()
+    # Crush any double spaces or invisible tabs into a single space
+    name = re.sub(r'\s+', ' ', str(name)).strip().upper()
 
-    if report_type == 'AEON' or report_type == 'AEON DF':
-        # CS Mappings
-        if name == 'AEON BANDAR DATO ONN': return 'Aeon Dato Onn-JHR'
-        if name == 'AEON DATO ONN-JHR': return 'Aeon Dato Onn-JHR'
-        if name == 'AEON BUKIT MERTAJAM': return 'Aeon Bukit Mertajam-PNG'
-        if name == 'AEON KLEBANG STORE': return 'Aeon Klebang-PNG'
-        if name == 'AEON KOTA BHARU STORE': return 'Aeon Kota Bahru-KTN'
-        if name == 'AEON KOTA BAHRU-KTN': return 'Aeon Kota Bahru-KTN'
-        if name == 'AEON MALL KULAIJAYA': return 'Aeon Kulai Jaya-JHR'
-        if name == 'AEON KULAI JAYA-JHR': return 'Aeon Kulai Jaya-JHR'
-        if name == 'AEON NILAI': return 'Aeon Nilai-KUL'
-        if name == 'AEON RAWANG': return 'Aeon Rawang'
-        if name == 'AEON SETIA ALAM': return 'Aeon Setia Alam-KUL'
-        if name == 'AEON SETIA ALAM E-COMMERCE': return 'Aeon Setia Alam-KUL'
-        if name == 'AEON SETIA ALAM-KUL': return 'Aeon Setia Alam-KUL'
-        if name == 'AEON SHAH ALAM STORE': return 'Aeon Shah Alam-KUL'
-        if name == 'AEON TAIPING': return 'Aeon Taiping-PRK'
-        if name == 'AEON TAIPING-PRK': return 'Aeon Taiping-PRK'
-        if name == 'AMPANG UTARA 2': return 'Aeon Ampang Utara 2-KUL'
-        if name == 'AEON AMPANG UTARA 2-KUL' : return 'Aeon Ampang Utara 2-KUL'
-        if name == 'BANDAR BARU KLANG': return 'Aeon Bandar Baru Klang-KUL'
-        if name == 'AEON BANDAR BARU KLANG-KUL': return 'Aeon Bandar Baru Klang-KUL'
-        if name == 'BANDAR PUCHONG': return 'Aeon Puchong-KUL'
-        if name == 'AEON IOI PUCHONG-KUL': return 'Aeon Puchong-KUL'
-        if name == 'AEON PUCHONG-KUL' : return 'Aeon Puchong-KUL'
-        if name == 'BANDAR PUCHONG E-COMMERCE': return 'Aeon Puchong-KUL'
-        if name == 'AEON PUCHONG-KUL HC000020-1008': return 'Aeon Puchong-KUL'
-        if name == 'BANDAR UTAMA': return 'Aeon Bandar Utama-KUL'
-        if name == 'BANDAR UTAMA E-COMMERCE': return 'Aeon Bandar Utama-KUL'
-        if name == '2 AEON BANDAR UTAMA-KUL': return 'Aeon Bandar Utama-KUL'
-        if name == 'AEON BANDAR UTAMA-KUL HC000020-1004': return 'Aeon Bandar Utama-KUL'
-        if name == '2 AEON BANDAR UTAMA-KUL HC000020-1004-2' : return 'Aeon Bandar Utama-KUL'
-        if name == 'AEON BANDAR UTAMA-KUL': return 'Aeon Bandar Utama-KUL'
-        if name == 'BANDARAYA MELAKA': return 'Aeon New JJ-MLK'
-        if name == 'BANDARAYA MELAKA E-COMMERCE': return 'Aeon New JJ-MLK'
-        if name == 'AEON NEW JJ-MLK': return 'Aeon New JJ-MLK'
-        if name == 'BUKIT INDAH': return 'Aeon Bukit Indah-JHR'
-        if name == 'BUKIT INDAH E-COMMERCE': return 'Aeon Bukit Indah-JHR'
-        if name == 'AEON BUKIT INDAH-JHR': return 'Aeon Bukit Indah-JHR'
-        if name == 'BUKIT MERTAJAM': return 'Aeon Bukit Mertajam-PNG'
-        if name == 'BUKIT MERTAJAM E-COMMERCE': return 'Aeon Bukit Mertajam-PNG'
-        if name == 'AEON BUKIT MERTAJAM-PNG': return 'Aeon Bukit Mertajam-PNG'
-        if name == 'BUKIT TINGGI': return 'Aeon Bukit Tinggi-KUL'
-        if name == 'BUKIT TINGGI E-COMMERCE': return 'Aeon Bukit Tinggi-KUL'
-        if name == '2 AEON BUKIT TINGGI-KUL': return 'Aeon Bukit Tinggi-KUL'
-        if name == 'AEON BUKIT TINGGI-KUL HC000020-1018': return 'Aeon Bukit Tinggi-KUL'
-        if name == 'AEON BUKIT TINGGI-KUL': return 'Aeon Bukit Tinggi-KUL'
-        if name == 'CHERAS SELATAN': return 'Aeon Cheras Selatan-KUL'
-        if name == 'CHERAS SELATAN E-COMMERCE': return 'Aeon Cheras Selatan-KUL'
-        if name == 'AEON CHERAS SELATAN-KUL': return 'Aeon Cheras Selatan-KUL'
-        if name == '2 AEON CHERAS SELATAN-KUL': return 'Aeon Cheras Selatan-KUL'
-        if name == 'AEON CHERAS SELATAN-KUL HC000020-1014': return 'Aeon Cheras Selatan-KUL'
-        if name == 'IOI PUTRAJAYA': return 'Aeon Putrajaya IOI-KUL'
-        if name == 'AEON PUTRAJAYA-KUL': return 'Aeon Putrajaya IOI-KUL'
-        if name == 'AEON IOI PUTRAJAYA-KUL' : return 'Aeon Putrajaya IOI-KUL'
-        if name == 'IPOH E-COMMERCE': return 'Aeon Old Ipoh-PRK'
-        if name == 'AEON OLD IPOH-PRK': return 'Aeon Old Ipoh-PRK'
-        if name == 'IPOH STATION 18': return 'Aeon New Ipoh-PRK'
-        if name == 'AEON NEW IPOH-PRK': return 'Aeon New Ipoh-PRK'
-        if name == 'AEON NEW IPOH-PRK (STATION 18)' : return 'Aeon New Ipoh-PRK'
-        if name == 'IPOH STORE': return 'Aeon Old Ipoh-PRK'
-        if name == 'AEON OLD IPOH-PRK (IPOH STORE)' : return 'Aeon Old Ipoh-PRK'
-        if name == 'KOTA BAHRU E-COMMERCE': return 'Aeon Kota Bahru-KTN'
-        if name == 'KULAI': return 'Aeon Kulai Jaya-JHR'
-        if name == 'KULAI E-COMMERCE': return 'Aeon Kulai Jaya-JHR'
-        if name == 'MAXVALU DANGA BAY': return 'Aeon Maxvalu Danga Bay'
-        if name == 'AEON MAXVALU DANGA BAY': return 'Aeon Maxvalu Danga Bay'
-        if name == 'MAXVALU PRIME DPC': return 'Aeon Maxvalu DPC-KUL'
-        if name == 'AEON MAXVALU PRIME DPC-KUL' : return 'Aeon Maxvalu DPC-KUL'
-        if name == 'AEON MAXVALU DPC-KUL HC000020-3020': return 'Aeon Maxvalu DPC-KUL'
-        if name == 'AEON MAXVALU DPC-KUL': return 'Aeon Maxvalu DPC-KUL'
-        if name == 'MELAKA': return 'Aeon Old JJ-MLK'
-        if name == 'MELAKA E-COMMERCE': return 'Aeon Old JJ-MLK'
-        if name == 'AEON OLD JJ-MLK': return 'Aeon Old JJ-MLK'
-        if name == '2 AEON METRO PRIMA-KUL': return 'Aeon Metro Prima-KUL'
-        if name == 'AEON METRO PRIMA-KUL HC000020-1011': return 'Aeon Metro Prima-KUL'
-        if name == 'AEON METRO PRIMA-KUL': return 'Aeon Metro Prima-KUL'
-        if name == 'METRO PRIMA E-COMMERCE': return 'Aeon Metro Prima-KUL'
-        if name == 'METRO PRIMA': return 'Aeon Metro Prima-KUL'
-        if name == 'MID VALLEY': return 'Aeon Midvalley-KUL'
-        if name == 'MID VALLEY E-COMMERCE': return 'Aeon Midvalley-KUL'
-        if name == '2 AEON MIDVALLEY-KUL': return 'Aeon Midvalley-KUL'
-        if name == 'AEON MIDVALLEY-KUL HC000020-1007': return 'Aeon Midvalley-KUL'
-        if name == 'AEON MIDVALLEY-KUL': return 'Aeon Midvalley-KUL'
-        if name == 'NATIONWIDE TAMAN MALURI': return 'Aeon Taman Maluri-KUL'
-        if name == 'AEON TAMAN MALURI-KUL HC000020-1001' : return 'Aeon Taman Maluri-KUL'
-        if name == 'AM AEON TAMAN MALURI-KUL' : return 'Aeon Taman Maluri-KUL'
-        if name == 'AEON TAMAN MALURI-KUL' : return 'Aeon Taman Maluri-KUL'
-        if name == '2 AM AEON TAMAN MALURI-KUL' : return 'Aeon Taman Maluri-KUL'
-        if name == '2 AEON TAMAN MALURI-KUL HC000020-1001-2' : return 'Aeon Taman Maluri-KUL'
-        if name == 'NILAI E-COMMERCE': return 'Aeon Nilai-KUL'
-        if name == 'AEON NILAI-KUL': return 'Aeon Nilai-KUL'
-        if name == 'AEON NILAI-KUL HC000020-1040': return 'Aeon Nilai-KUL'
-        if name == 'PERMAS JAYA': return 'Aeon Permas-JHR'
-        if name == 'AEON PERMAS-JHR': return 'Aeon Permas-JHR'
-        if name == 'QUEENS BAY E-COMMERCE': return 'Aeon QB-PNG'
-        if name == 'QUEENSBAY': return 'Aeon QB-PNG'
-        if name == 'AEON QB-PNG': return 'Aeon QB-PNG'
-        if name == 'SEREMBAN 2': return 'Aeon Seremban 2-KUL'
-        if name == 'SEREMBAN 2 E-COMMERCE': return 'Aeon Seremban 2-KUL'
-        if name == 'AEON SEREMBAN 2-KUL': return 'Aeon Seremban 2-KUL'
-        if name == 'AEON SEREMBAN 2-KUL HC000020-1012': return 'Aeon Seremban 2-KUL'
-        if name == 'SHAH ALAM E': return 'Aeon Shah Alam-KUL'
-        if name == 'SHAH ALAM E-COMMERCE': return 'Aeon Shah Alam-KUL'
-        if name == 'AEON SHAH ALAM-KUL': return 'Aeon Shah Alam-KUL'
-        if name == 'SUNWAY VELOCITY': return 'Aeon Maxvalu Velocity-KUL'
-        if name == 'AEON MAXVALU VELOCITY-KUL' : return 'Aeon Maxvalu Velocity-KUL'
-        if name == 'XXX AEON MAXVALU DPC-KUL' : return 'Aeon Maxvalu Velocity-KUL'
-        if name == 'AEON SUNWAY VELOCITY-KUL' : return 'Aeon Maxvalu Velocity-KUL'
-        if name == 'TAIPING': return 'Aeon Taiping-PRK'
-        if name == 'TAIPING E-COMMERCE': return 'Aeon Taiping-PRK'
-        if name == 'TAMAN EQUINE': return 'Aeon Taman Equine-KUL'
-        if name == 'TAMAN EQUINE E-COMMERCE': return 'Aeon Taman Equine-KUL'
-        if name == 'AEON TAMAN EQUINE-KUL': return 'Aeon Taman Equine-KUL'
-        if name == 'TAMAN MALURI': return 'Aeon Taman Maluri-KUL'
-        if name == 'TAMAN MALURI E-COMMERCE': return 'Aeon Taman Maluri-KUL'
-        if name == 'TAMAN UNIVERSITI': return 'Aeon Taman U-JHR'
-        if name == 'AEON TAMAN U-JHR': return 'Aeon Taman U-JHR'
-        if name == 'TEBRAU CITY': return 'Aeon Tebrau-JHR'
-        if name == 'TEBRAU CITY E-COMMERCE': return 'Aeon Tebrau-JHR'
-        if name == 'AEON TEBRAU-JHR': return 'Aeon Tebrau-JHR'
-        if name == '2 AEON TEBRAU-JHR': return 'Aeon Tebrau-JHR'
-        if name == 'WANGSA MAJU': return 'Aeon Wangsa Maju-KUL'
-        if name == 'AEON WANGSA MAJU-KUL': return 'Aeon Wangsa Maju-KUL'
-        if name == 'AEON MAXVALU DANGA BAY-JHR': return 'Aeon Maxvalu Danga Bay'
-
+    if report_type in ['AEON', 'AEON DF']:
+        if loc_map and name in loc_map:
+            return loc_map[name]
         return name
+    
+    elif report_type in ['TFP', 'TFP DF']:
+        # 1. First, check for an exact match in the Loc tab dictionary
+        if loc_map and name in loc_map:
+            return loc_map[name]
+        
+        # 2. If no exact match, see if the name contains a code like "BBT"
+        # We look for the code at the start of the string (e.g., "BBT - BIG BATAI")
+        if loc_map:
+            for code in loc_map.keys():
+                # If the name starts with the code (e.g., "BBT"), use that mapped value
+                if name.startswith(code):
+                    return loc_map[code]
 
-    elif report_type == 'TFP' or report_type == 'TFP DF':
-        if name == 'BBT - BIG BATAI': return "VG Ben's Batai (BBT)-KUL"
-        if name == "VG BEN'S BATAI (BBT)-KUL": return "VG Ben's Batai (BBT)-KUL"
-        if name == 'BIP - BIG IPC': return "VG Ben's Ipc (BIP)-KUL"
-        if name == "VG BEN'S IPC (BIP)-KUL": return "VG Ben's Ipc (BIP)-KUL"
-        if name == 'BLI - BIG THE LINC': return "VG Ben's Linc (BLI)-KUL"
-        if name == "VG BEN'S LINC (BLI)-KUL": return "VG Ben's Linc (BLI)-KUL"
-        if name == 'BMM - BIG MALL OF MEDINI': return "VG Ben's Mall (BMM)-JHR"
-        if name == "VG BEN'S MALL (BMM)-JHR": return "VG Ben's Mall (BMM)-JHR"
-        if name == 'BPS - BIG PUBLIKA': return "VG Ben's Publika (BPS)-KUL"
-        if name == "VG BEN'S PUBLIKA (BPS)-KUL": return "VG Ben's Publika (BPS)-KUL"
-        if name == "VG BEN'S PUBLIKA (BPS)-KUL HC001500-4001": return "VG Ben's Publika (BPS)-KUL"
-        if name == 'BSC - BSC FINE FOODS': return "VG Ben's (BSC)-KUL"
-        if name == "VG BEN'S (BSC)-KUL": return "VG Ben's (BSC)-KUL"
-        if name == "VG BEN'S BATAI (BBT)-KUL HC001500-4002": return "VG Ben's (BSC)-KUL"
-        if name == "VG BEN'S (BSC)-KUL HC001500-4011" : return "VG Ben's (BSC)-KUL"
-        if name == "VG Ben's Batai (BBT)-KUL" : return  "VG Ben's (BSC)-KUL"
-        if name == 'LGC - LEISURE MALL': return 'VG Leisure Mall (LGC)-KUL'
-        if name == 'VG LEISURE MALL (LGC)-KUL HC001500-3019': return 'VG Leisure Mall (LGC)-KUL'
-        if name == 'VG LEISURE MALL (LGC)-KUL': return 'VG Leisure Mall (LGC)-KUL'
-        if name == 'VAD - ARA DAMANSARA': return 'VG Citta Mall (VAD)-KUL'
-        if name == 'VG CITTA MALL (VAD)-KUL HC001500-3005': return 'VG Citta Mall (VAD)-KUL'
-        if name == 'VG CITTA MALL (VAD)-KUL': return 'VG Citta Mall (VAD)-KUL'
-        if name == 'VAK - AVENUE K': return 'VG Avenue K (VAK)-KUL'
-        if name == 'VG AVENUE K (VAK)-KUL': return 'VG Avenue K (VAK)-KUL'
-        if name == 'VG AVENUE K (VAK)-KUL HC001500-3006': return 'VG Avenue K (VAK)-KUL'
-        if name == 'VCJ - CITY JUNCTION': return 'VG City Junction (VCJ)-PNG'
-        if name == 'VG CITY JUNCTION (VCJ)-PNG': return 'VG City Junction (VCJ)-PNG'
-        if name == 'VDJ - DAMANSARA JAYA': return 'VG Atria (VDJ)-KUL'
-        if name == 'VG ATRIA (VDJ)-KUL HC001500-3004': return 'VG Atria (VDJ)-KUL'
-        if name == 'VG ATRIA (VDJ)-KUL': return 'VG Atria (VDJ)-KUL'
-        if name == 'VDP - DP ARKADIA': return 'VG Desa Park City (VDP)-KUL'
-        if name == 'VG DESA PARK CITY (VDP)-KUL': return 'VG Desa Park City (VDP)-KUL'
-        if name == 'VG DESA PARK CITY (VDP)-KUL HC001500-3008': return 'VG Desa Park City (VDP)-KUL'
-        if name == 'VEC - EKOCHERAS': return 'VG Eko Cheras (VEC)-KUL'
-        if name == 'VG EKO CHERAS (VEC)-KUL': return 'VG Eko Cheras (VEC)-KUL'
-        if name == 'VG EKO CHERAS (VEC)-KUL HC001500-3012': return 'VG Eko Cheras (VEC)-KUL'
-        if name == 'VEM - EMPIRE CITY': return 'VG Empire City-KUL'
-        if name == 'VG EMPIRE CITY (VEM)-KUL': return 'VG Empire City-KUL'
-        if name == 'VGB - BANGSAR VILLAGE': return 'VG Bangsar Village (VGB)-KUL'
-        if name == 'VG BANGSAR VILLAGE (VGB)-KUL': return 'VG Bangsar Village (VGB)-KUL'
-        if name == 'VG BANGSAR VILLAGE (VGB)-KUL HC001500-3003': return 'VG Bangsar Village (VGB)-KUL'
-        if name == '2 VG BANGSAR VILLAGE (VGB)-KUL': return 'VG Bangsar Village (VGB)-KUL'
-        if name == 'VGG - GIZA': return 'VG Giza (VGG)-KUL'
-        if name == 'VG GIZA (VGG)-KUL HC001500-3002': return 'VG Giza (VGG)-KUL'
-        if name == 'VG GIZA (VGG)-KUL': return 'VG Giza (VGG)-KUL'
-        if name == 'VGO - MONT KIARA': return 'VG Mont Kiara (VGO)-KUL'
-        if name == 'VG KIARA BAY-KUL': return 'VG Kiara Bay-KUL'
-        if name == 'VG MONT KIARA (VGO)-KUL': return 'VG Mont Kiara (VGO)-KUL'
-        if name == 'VG MONT KIARA (VGO)-KUL HC001500-3001': return 'VG Mont Kiara (VGO)-KUL'
-        if name == '3 VG MONT KIARA (VGO)-KUL': return 'VG Mont Kiara (VGO)-KUL'
-        if name == 'VHS - HARTAMAS SHOPPING CENTER': return 'VG Sri Hartamas (VHS)-KUL'
-        if name == 'VG SRI HARTAMAS (VHS)-KUL' : return 'VG Sri Hartamas (VHS)-KUL'
-        if name == 'VIK - IOI MALL KULAI': return 'VG IOI Mall Kulai (VIK)-JHR'
-        if name == 'VG IOI Mall Kulai (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
-        if name == 'VG IOI MALL KULAI (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
-        if name == 'VIM - IOI MALL PUCHONG': return 'VG Puchong-KUL'
-        if name == 'VG PUCHONG-KUL': return 'VG Puchong-KUL'
-        if name == 'VG PUCHONG-KUL HC001500-3025': return 'VG Puchong-KUL'
-        if name == 'VKB - KIARA BAY': return 'VG Kiara Bay-KUL'
-        if name == 'VLH - LAMAN SERI HARMONI': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-        if name == 'VG Laman Seri Harmoni 33 (VLH)-KUL': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-        if name == 'VG LAMAN SERI HARMONI 33 (VLH)-KUL': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-        if name == 'VG LAMAN SERI HARMONI 33 (VLH)-KUL HC001500-3035': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-        if name == 'VMN - MYRA NILAI': return 'VG Myra Park Marketplace-KUL'
-        if name == 'VG MYRA PARK MARKETPLACE-KUL HC001500-4013': return 'VG Myra Park Marketplace-KUL'
-        if name == 'VG MYRA PARK MARKETPLACE-KUL': return 'VG Myra Park Marketplace-KUL'
-        if name == 'VMT - MYTOWN': return 'VG My Town-KUL'
-        if name == 'VG MY TOWN-KUL': return 'VG My Town-KUL'
-        if name == 'VPM - PARADIGM MALL JB': return 'VG Paradigm Mall (VPM)-JHR'
-        if name == 'VG PARADIGM MALL (VPM)-JHR': return 'VG Paradigm Mall (VPM)-JHR'
-        if name == 'VPS - 168 PARK SELAYANG': return 'VG Selayang 168-KUL'
-        if name == 'VG SELAYANG 168-KUL' : return 'VG Selayang 168-KUL'
-        if name == 'VQW - QUEENS WATERFRONT PENANG': return 'VG Queen (VQW)-PNG'
-        if name == 'VG QUEEN (VQW)-PNG': return 'VG Queen (VQW)-PNG'
-        if name == 'VSK - SOUTHKEY': return 'VG Midvalley Southkey (VSK)-JHR'
-        if name == 'VG MIDVALLEY SOUTHKEY (VSK)-JHR': return 'VG Midvalley Southkey (VSK)-JHR'
-        if name == 'VSP - SUBANG PARADE': return 'VG Subang Parade (VSP)-KUL'
-        if name == 'VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
-        if name == '2 VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
-        if name == 'VG SUBANG PARADE (VSP)-KUL HC001500-3014' : return 'VG Subang Parade (VSP)-KUL'
-        if name == 'VSQ - SUNWAY SQUARE': return 'VG Sunway Square Mall (VSQ)-KUL'
-        if name == 'VG SUNWAY SQUARE MALL (VSQ)-KUL' : return 'VG Sunway Square Mall (VSQ)-KUL'
-        if name == 'VSS - SIERRA FRESCO': return 'VG Sierras Fresco-KUL'
-        if name == 'VG SIERRAS FRESCO (VSS)-KUL' : return 'VG Sierras Fresco-KUL'
-        if name == 'VG SIERRAS FRESCO-KUL' : return 'VG Sierras Fresco-KUL'
-        if name == 'VTS - TAMARIND SQUARE': return 'VG Tamarind Square (VTS)-KUL'
-        if name == 'VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
-        if name == 'VG TAMARIND SQUARE (VTS)-KUL HC001500-4016': return 'VG Tamarind Square (VTS)-KUL'
-        if name == 'XXX VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
-        if name == 'VBM - BUKIT MERTAJAM': return 'VG Vangohh Eminent (VBM)-PNG'
-        if name == 'VG VANGOHH EMINENT (VBM)-PNG' : return 'VG Vangohh Eminent (VBM)-PNG'
+    # elif report_type == 'TFP' or report_type == 'TFP DF':
+    #     if name == 'BBT - BIG BATAI': return "VG Ben's Batai (BBT)-KUL"
+    #     if name == "VG BEN'S BATAI (BBT)-KUL": return "VG Ben's Batai (BBT)-KUL"
+    #     if name == 'BIP - BIG IPC': return "VG Ben's Ipc (BIP)-KUL"
+    #     if name == "VG BEN'S IPC (BIP)-KUL": return "VG Ben's Ipc (BIP)-KUL"
+    #     if name == 'BLI - BIG THE LINC': return "VG Ben's Linc (BLI)-KUL"
+    #     if name == "VG BEN'S LINC (BLI)-KUL": return "VG Ben's Linc (BLI)-KUL"
+    #     if name == 'BMM - BIG MALL OF MEDINI': return "VG Ben's Mall (BMM)-JHR"
+    #     if name == "VG BEN'S MALL (BMM)-JHR": return "VG Ben's Mall (BMM)-JHR"
+    #     if name == 'BPS - BIG PUBLIKA': return "VG Ben's Publika (BPS)-KUL"
+    #     if name == "VG BEN'S PUBLIKA (BPS)-KUL": return "VG Ben's Publika (BPS)-KUL"
+    #     if name == "VG BEN'S PUBLIKA (BPS)-KUL HC001500-4001": return "VG Ben's Publika (BPS)-KUL"
+    #     if name == 'BSC - BSC FINE FOODS': return "VG Ben's (BSC)-KUL"
+    #     if name == "VG BEN'S (BSC)-KUL": return "VG Ben's (BSC)-KUL"
+    #     if name == "VG BEN'S BATAI (BBT)-KUL HC001500-4002": return "VG Ben's (BSC)-KUL"
+    #     if name == "VG BEN'S (BSC)-KUL HC001500-4011" : return "VG Ben's (BSC)-KUL"
+    #     if name == "VG Ben's Batai (BBT)-KUL" : return  "VG Ben's (BSC)-KUL"
+    #     if name == 'LGC - LEISURE MALL': return 'VG Leisure Mall (LGC)-KUL'
+    #     if name == 'VG LEISURE MALL (LGC)-KUL HC001500-3019': return 'VG Leisure Mall (LGC)-KUL'
+    #     if name == 'VG LEISURE MALL (LGC)-KUL': return 'VG Leisure Mall (LGC)-KUL'
+    #     if name == 'VAD - ARA DAMANSARA': return 'VG Citta Mall (VAD)-KUL'
+    #     if name == 'VG CITTA MALL (VAD)-KUL HC001500-3005': return 'VG Citta Mall (VAD)-KUL'
+    #     if name == 'VG CITTA MALL (VAD)-KUL': return 'VG Citta Mall (VAD)-KUL'
+    #     if name == 'VAK - AVENUE K': return 'VG Avenue K (VAK)-KUL'
+    #     if name == 'VG AVENUE K (VAK)-KUL': return 'VG Avenue K (VAK)-KUL'
+    #     if name == 'VG AVENUE K (VAK)-KUL HC001500-3006': return 'VG Avenue K (VAK)-KUL'
+    #     if name == 'VCJ - CITY JUNCTION': return 'VG City Junction (VCJ)-PNG'
+    #     if name == 'VG CITY JUNCTION (VCJ)-PNG': return 'VG City Junction (VCJ)-PNG'
+    #     if name == 'VDJ - DAMANSARA JAYA': return 'VG Atria (VDJ)-KUL'
+    #     if name == 'VG ATRIA (VDJ)-KUL HC001500-3004': return 'VG Atria (VDJ)-KUL'
+    #     if name == 'VG ATRIA (VDJ)-KUL': return 'VG Atria (VDJ)-KUL'
+    #     if name == 'VDP - DP ARKADIA': return 'VG Desa Park City (VDP)-KUL'
+    #     if name == 'VG DESA PARK CITY (VDP)-KUL': return 'VG Desa Park City (VDP)-KUL'
+    #     if name == 'VG DESA PARK CITY (VDP)-KUL HC001500-3008': return 'VG Desa Park City (VDP)-KUL'
+    #     if name == 'VEC - EKOCHERAS': return 'VG Eko Cheras (VEC)-KUL'
+    #     if name == 'VG EKO CHERAS (VEC)-KUL': return 'VG Eko Cheras (VEC)-KUL'
+    #     if name == 'VG EKO CHERAS (VEC)-KUL HC001500-3012': return 'VG Eko Cheras (VEC)-KUL'
+    #     if name == 'VEM - EMPIRE CITY': return 'VG Empire City-KUL'
+    #     if name == 'VG EMPIRE CITY (VEM)-KUL': return 'VG Empire City-KUL'
+    #     if name == 'VGB - BANGSAR VILLAGE': return 'VG Bangsar Village (VGB)-KUL'
+    #     if name == 'VG BANGSAR VILLAGE (VGB)-KUL': return 'VG Bangsar Village (VGB)-KUL'
+    #     if name == 'VG BANGSAR VILLAGE (VGB)-KUL HC001500-3003': return 'VG Bangsar Village (VGB)-KUL'
+    #     if name == '2 VG BANGSAR VILLAGE (VGB)-KUL': return 'VG Bangsar Village (VGB)-KUL'
+    #     if name == 'VGG - GIZA': return 'VG Giza (VGG)-KUL'
+    #     if name == 'VG GIZA (VGG)-KUL HC001500-3002': return 'VG Giza (VGG)-KUL'
+    #     if name == 'VG GIZA (VGG)-KUL': return 'VG Giza (VGG)-KUL'
+    #     if name == 'VGO - MONT KIARA': return 'VG Mont Kiara (VGO)-KUL'
+    #     if name == 'VG KIARA BAY-KUL': return 'VG Kiara Bay-KUL'
+    #     if name == 'VG MONT KIARA (VGO)-KUL': return 'VG Mont Kiara (VGO)-KUL'
+    #     if name == 'VG MONT KIARA (VGO)-KUL HC001500-3001': return 'VG Mont Kiara (VGO)-KUL'
+    #     if name == '3 VG MONT KIARA (VGO)-KUL': return 'VG Mont Kiara (VGO)-KUL'
+    #     if name == 'VHS - HARTAMAS SHOPPING CENTER': return 'VG Sri Hartamas (VHS)-KUL'
+    #     if name == 'VG SRI HARTAMAS (VHS)-KUL' : return 'VG Sri Hartamas (VHS)-KUL'
+    #     if name == 'VIK - IOI MALL KULAI': return 'VG IOI Mall Kulai (VIK)-JHR'
+    #     if name == 'VG IOI Mall Kulai (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
+    #     if name == 'VG IOI MALL KULAI (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
+    #     if name == 'VIM - IOI MALL PUCHONG': return 'VG Puchong-KUL'
+    #     if name == 'VG PUCHONG-KUL': return 'VG Puchong-KUL'
+    #     if name == 'VG PUCHONG-KUL HC001500-3025': return 'VG Puchong-KUL'
+    #     if name == 'VKB - KIARA BAY': return 'VG Kiara Bay-KUL'
+    #     if name == 'VLH - LAMAN SERI HARMONI': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
+    #     if name == 'VG Laman Seri Harmoni 33 (VLH)-KUL': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
+    #     if name == 'VG LAMAN SERI HARMONI 33 (VLH)-KUL': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
+    #     if name == 'VG LAMAN SERI HARMONI 33 (VLH)-KUL HC001500-3035': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
+    #     if name == 'VMN - MYRA NILAI': return 'VG Myra Park Marketplace-KUL'
+    #     if name == 'VG MYRA PARK MARKETPLACE-KUL HC001500-4013': return 'VG Myra Park Marketplace-KUL'
+    #     if name == 'VG MYRA PARK MARKETPLACE-KUL': return 'VG Myra Park Marketplace-KUL'
+    #     if name == 'VMT - MYTOWN': return 'VG My Town-KUL'
+    #     if name == 'VG MY TOWN-KUL': return 'VG My Town-KUL'
+    #     if name == 'VPM - PARADIGM MALL JB': return 'VG Paradigm Mall (VPM)-JHR'
+    #     if name == 'VG PARADIGM MALL (VPM)-JHR': return 'VG Paradigm Mall (VPM)-JHR'
+    #     if name == 'VPS - 168 PARK SELAYANG': return 'VG Selayang 168-KUL'
+    #     if name == 'VG SELAYANG 168-KUL' : return 'VG Selayang 168-KUL'
+    #     if name == 'VQW - QUEENS WATERFRONT PENANG': return 'VG Queen (VQW)-PNG'
+    #     if name == 'VG QUEEN (VQW)-PNG': return 'VG Queen (VQW)-PNG'
+    #     if name == 'VSK - SOUTHKEY': return 'VG Midvalley Southkey (VSK)-JHR'
+    #     if name == 'VG MIDVALLEY SOUTHKEY (VSK)-JHR': return 'VG Midvalley Southkey (VSK)-JHR'
+    #     if name == 'VSP - SUBANG PARADE': return 'VG Subang Parade (VSP)-KUL'
+    #     if name == 'VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
+    #     if name == '2 VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
+    #     if name == 'VG SUBANG PARADE (VSP)-KUL HC001500-3014' : return 'VG Subang Parade (VSP)-KUL'
+    #     if name == 'VSQ - SUNWAY SQUARE': return 'VG Sunway Square Mall (VSQ)-KUL'
+    #     if name == 'VG SUNWAY SQUARE MALL (VSQ)-KUL' : return 'VG Sunway Square Mall (VSQ)-KUL'
+    #     if name == 'VSS - SIERRA FRESCO': return 'VG Sierras Fresco-KUL'
+    #     if name == 'VG SIERRAS FRESCO (VSS)-KUL' : return 'VG Sierras Fresco-KUL'
+    #     if name == 'VG SIERRAS FRESCO-KUL' : return 'VG Sierras Fresco-KUL'
+    #     if name == 'VTS - TAMARIND SQUARE': return 'VG Tamarind Square (VTS)-KUL'
+    #     if name == 'VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
+    #     if name == 'VG TAMARIND SQUARE (VTS)-KUL HC001500-4016': return 'VG Tamarind Square (VTS)-KUL'
+    #     if name == 'XXX VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
+    #     if name == 'VBM - BUKIT MERTAJAM': return 'VG Vangohh Eminent (VBM)-PNG'
+    #     if name == 'VG VANGOHH EMINENT (VBM)-PNG' : return 'VG Vangohh Eminent (VBM)-PNG'
 
-        return name
+    #     return name
     
     elif report_type == 'NTUC':
         name = re.sub(r'^\d+\s*-\s*', '', name)
@@ -432,7 +323,7 @@ def find_correct_header_row(df_in, required_map, source_name="File"):
 
 # --- 3. MAIN PROCESS DATA FUNCTION ---
 @st.cache_data
-def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type,df_uom_raw=None,df_dist2_raw=None):
+def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type,df_uom_raw=None,df_dist2_raw=None,df_loc_raw=None):
     master_name_map = {}
     nav_to_article_map = {} 
 
@@ -498,6 +389,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     df_valid_db = df_db[df_db['NAV'] != "0"]
     nav_to_article_map = df_valid_db.drop_duplicates('NAV').set_index('NAV')['Article'].to_dict()
 
+
     if 'ArtDesc' in df_db.columns:
         df_db['Final_Name'] = df_db['ArtDesc']
         if 'NavDesc' in df_db.columns:
@@ -508,7 +400,43 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     if 'UOM' in df_db.columns:
         uom_mapping = df_db.set_index('NAV')['UOM'].to_dict()
     
-    rsp_mapping = {}
+    # aeon_loc_map = {}
+    # if (report_type == "AEON" or report_type == "AEON DF") and df_loc_raw is not None:
+    #     loc_sheet_cols = {'RawLoc': ['AEON NAME'], 'NavLoc': ['NAV LOC NAME']}
+    #     df_loc = find_correct_header_row(df_loc_raw, loc_sheet_cols, "Loc")
+        
+    #     if df_loc is not None:
+    #         df_loc = strict_rename(df_loc, loc_sheet_cols)
+    #         df_loc = df_loc.dropna(subset=['RawLoc', 'NavLoc'])
+    #         # Build dictionary: Uppercase the raw name so it matches reliably
+    #         for _, row in df_loc.iterrows():
+    #             k = str(row['RawLoc']).strip()
+    #             v = str(row['NavLoc']).strip()
+                
+    #             # if k and k not in ["NAN", "NONE", ""]: 
+    #             aeon_loc_map[k] = v
+
+    loc_map = {}
+    if report_type in ["AEON", "AEON DF", "TFP", "TFP DF"] and df_loc_raw is not None:
+        if "AEON" in report_type:
+            loc_sheet_cols = {'RawLoc': ['AEON NAME'], 'NavLoc': ['NAV LOC NAME']}
+            sheet_title = "Loc"
+        else:
+            loc_sheet_cols = {'RawLoc': ['Loc'], 'NavLoc': ['Name']}
+            sheet_title = "3 - DATABASE LOCATION"
+            
+        df_loc = find_correct_header_row(df_loc_raw, loc_sheet_cols, sheet_title)
+        
+        if df_loc is not None:
+            df_loc = strict_rename(df_loc, loc_sheet_cols)
+            df_loc = df_loc.dropna(subset=['RawLoc', 'NavLoc'])
+            for _, row in df_loc.iterrows():
+                k = str(row['RawLoc']).strip()
+                v = str(row['NavLoc']).strip()
+                # if k and k not in ["NAN", "NONE", ""]: 
+                loc_map[k] = v
+    
+    rsp_mapping = {}  
     if (report_type == "AEON" or report_type == "AEON DF") and df_uom_raw is not None:
         # Find headers for UOM sheet
         uom_sheet_cols = {'Desc': ['Item Description'], 'RSP': ['RSP']}
@@ -623,7 +551,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
             if k not in master_name_map: master_name_map[k] = v
      
     #df_sales = df_sales[df_sales['NAV'] != "0"]
-    df_sales['Store'] = df_sales['Store'].apply(lambda x: normalize_store_name(x, report_type))
+    df_sales['Store'] = df_sales['Store'].apply(lambda x: normalize_store_name(x, report_type,loc_map))
     df_sales['Qty'] = df_sales['Qty'].apply(clean_currency)
     df_sales['Val'] = df_sales['Val'].apply(clean_currency)
     if report_type == 'AEON' or report_type == 'AEON DF' or report_type == 'TFP' or report_type == 'TFP DF':
@@ -760,7 +688,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         for k, v in dist_names.items():
             if k not in master_name_map: master_name_map[k] = v
 
-    df_dist['Store'] = df_dist['Store'].apply(lambda x: normalize_store_name(x, report_type))
+    df_dist['Store'] = df_dist['Store'].apply(lambda x: normalize_store_name(x, report_type,loc_map))
     df_dist['Date'] = pd.to_datetime(df_dist['Date'], errors='coerce')
     df_dist['Year'] = df_dist['Date'].dt.year.astype(str).str.replace(r'\.0$', '', regex=True)
     df_dist['Month'] = df_dist['Date'].dt.month_name().str[:3]
@@ -807,7 +735,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
                 mask = df_waste['Chain'].astype(str).str.upper().str.contains('NTUC', regex=True, na=False)
                 df_waste = df_waste[mask]
         df_waste['NAV'] = df_waste['NAV'].apply(clean_id)
-        df_waste['Store'] = df_waste['Store'].apply(lambda x: normalize_store_name(x, report_type))
+        df_waste['Store'] = df_waste['Store'].apply(lambda x: normalize_store_name(x, report_type,loc_map))
         df_waste['Date'] = pd.to_datetime(df_waste['Date'], dayfirst=True, errors='coerce')
         df_waste['Year'] = df_waste['Date'].dt.year.astype(str).replace(r'\.0$', '', regex=True)
         df_waste['Month'] = df_waste['Date'].dt.month_name().str[:3]
@@ -941,10 +869,16 @@ def main_app_interface(authenticator, name, permissions):
             r_d2 = load_google_sheet(urls['d2']) if 'd2' in urls and urls['d2'] else None
             # Only load wastage file if not CS_DRY
             r_uom = load_google_sheet(urls['db'], "UOM") if rpt == "AEON" or rpt == "AEON DF" else None
+            if rpt in ["AEON", "AEON DF"]:
+                r_loc = load_google_sheet(urls['db'], "Loc")
+            elif rpt in ["TFP", "TFP DF"]:
+                r_loc = load_google_sheet(urls['db'], "3 - DATABASE LOCATION")
+            else:
+                r_loc = None
             r_w = None if rpt == "CS_DRY" or rpt == "SS_DRY" else load_google_sheet(urls['w'])
 
             if r_s is not None and r_d is not None:
-                res = process_data(r_s, r_db, r_d, r_w, rpt,r_uom,r_d2)
+                res = process_data(r_s, r_db, r_d, r_w, rpt, r_uom, r_d2, r_loc)
                 if res:
                     # 1. Variables are defined here
                     df_s, df_d, df_w, map_name, map_art, _, update_info = res
@@ -1055,13 +989,13 @@ def main_app_interface(authenticator, name, permissions):
                     # Views
                     v_s_qty = df.groupby([group_col,'Store'])[qty_display_list].sum()
                     v_s_qty['STR%'] = (v_s_qty['Sales_Qty']/ v_s_qty['Dist_Qty'])*100
-                    v_s_qty['STR%'] = v_s_qty['STR%'].replace([np.inf, -np.inf], 0).fillna(0)
+                    v_s_qty['STR%'] = v_s_qty['STR%'].replace([np.inf, -np.inf], 0).fillna(0).round(0)
                     v_s_val = df.groupby([group_col,'Store'])[val_display_list].sum()
                     v_i_qty = df.groupby([group_col,'Article_Code', 'Item_Name'])[qty_display_list].sum()
-                    v_i_qty['STR%'] = (v_i_qty['Sales_Qty'] / v_i_qty['Dist_Qty'] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(2)
+                    v_i_qty['STR%'] = (v_i_qty['Sales_Qty'] / v_i_qty['Dist_Qty'] * 100).replace([np.inf, -np.inf], 0).fillna(0).round(0)
                     v_i_qty = v_i_qty.sort_values('Dist_Qty', ascending=False)
                     v_i_val = df.groupby([group_col,'Article_Code', 'Item_Name'])[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum().sort_values('Dist_Val', ascending=False)
-                    v_top10_all = df.groupby([group_col, 'Item_Name'])['Sales_Val'].sum().reset_index()
+                    v_top10_all = df.groupby('Item_Name')[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum().reset_index()
 
 
 
@@ -1085,7 +1019,8 @@ def main_app_interface(authenticator, name, permissions):
                             if (sort_col, 'TOTAL') in summary.columns:
                                 summary = summary.sort_values((sort_col, 'TOTAL'), ascending=False)
                             st.markdown(f"### 🏢 Store Summary")
-                            st.dataframe(summary.style.format(fmt), height=400, use_container_width=True)
+                            f_dict = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in summary.columns}
+                            st.dataframe(summary.style.format(f_dict), height=400, use_container_width=True)
                             st.divider()
                             # 2. FAST DRILL-DOWN (Selectbox instead of Loop)
                             st.markdown("### 🔍 Select Store to View Details")
@@ -1112,7 +1047,8 @@ def main_app_interface(authenticator, name, permissions):
                                 if (sort_col, 'TOTAL') in detail_view.columns:
                                     detail_view = detail_view.sort_values((sort_col, 'TOTAL'), ascending=False)
                                 st.markdown(f"#### 📦 Items in {selected_store}")
-                                st.dataframe(detail_view.style.format(fmt), width='stretch')
+                                f_det = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in detail_view.columns}
+                                st.dataframe(detail_view.style.format(f_det), width='stretch')
                     
                     display_drilldown(
                         t1, 
@@ -1149,11 +1085,12 @@ def main_app_interface(authenticator, name, permissions):
                                 sales_total = summary[('Sales_Qty', 'TOTAL')]
                                 dist_total =summary[('Dist_Qty','TOTAL')]
                                 str_vals = (sales_total/dist_total * 100).replace([float('inf'), -float('inf')], 0)
-                                summary[('STR%', 'TOTAL')] = str_vals.round(2)
+                                summary[('STR%', 'TOTAL')] = str_vals.round(0)
                             if (sort_col, 'TOTAL') in summary.columns:
                                 summary = summary.sort_values((sort_col, 'TOTAL'), ascending=False)
                             st.markdown(f"### 📦 Item Summary")
-                            st.dataframe(summary.style.format(fmt), height=400, use_container_width=True)
+                            f_dict = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in summary.columns}
+                            st.dataframe(summary.style.format(f_dict), height=400, use_container_width=True)
                             st.divider()
                             # 2. FAST DRILL-DOWN
                             st.markdown("### 🔍 Select Item to View Stores")
@@ -1179,7 +1116,8 @@ def main_app_interface(authenticator, name, permissions):
                                 if (sort_col, 'TOTAL') in item_view.columns:
                                     item_view = item_view.sort_values((sort_col, 'TOTAL'), ascending=False)
                                 st.markdown(f"#### 📍 Stores selling {selected_item}")
-                                st.dataframe(item_view.sort_index(axis=1).style.format(fmt), width='stretch')
+                                f_det = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in item_view.columns}
+                                st.dataframe(item_view.sort_index(axis=1).style.format(f_det), width='stretch')
 
                     # Tab 3 & 4: Item Views (Keep as simple Pivot)
                     def display_simple_pivot(tab, df_in, fmt,time_col):
@@ -1210,115 +1148,210 @@ def main_app_interface(authenticator, name, permissions):
 
                     with t5:
                         if not v_top10_all.empty:
-                        
-                            top10_grp = v_top10_all.groupby('Item_Name')['Sales_Val'].sum()
-                            top10_items = top10_grp.nlargest(10).index.tolist()
-                            top10_df = v_top10_all[v_top10_all['Item_Name'].isin(top10_items)].set_index([group_col, 'Item_Name'])
-                            v_top10 = df.groupby('Item_Name')['Sales_Val'].sum().sort_values(ascending=False).head(10).reset_index()
-
+                            valid_items_df = v_top10_all[(~v_top10_all['Item_Name'].str.startswith('Item ')) & (v_top10_all['Item_Name'] != 'Unknown Item')]
+                            top10_df = valid_items_df.nlargest(10, 'Sales_Val')
                             
-                            try:
-                                t10_pivot = top10_df.unstack(level=0, fill_value=0)
-                                t10_pivot[('Sales_Val', 'TOTAL')] = t10_pivot['Sales_Val'].sum(axis=1)
-                                t10_pivot = t10_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
-                                st.dataframe(t10_pivot.style.format("{:,.2f}"))
-                                chart_data = t10_pivot[('Sales_Val', 'TOTAL')].rename("Total Sales")
-                                st.bar_chart(chart_data)
-                                
-                            except Exception as e:
-                                st.error(f"Error in Top 10: {e}")
+                            # Create a display copy and add the Grand Total row
+                            disp_top10 = top10_df.copy()
+                            disp_top10.loc['Grand Total'] = disp_top10[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum()
+                            disp_top10.at['Grand Total', 'Item_Name'] = 'GRAND TOTAL'
+                            
+                            st.dataframe(disp_top10.style.format({c: "{:,.2f}" for c in ['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']}), hide_index=True, use_container_width=True)
+                            st.bar_chart(top10_df.set_index('Item_Name')['Sales_Val']) # Use original df for chart
                         else:
                             st.info("No Sales Data available for Top 10.")
                     
                     with t6:
-                        valid_items_df = v_top10_all[
-                            (~v_top10_all['Item_Name'].str.startswith('Item ')) & 
-                            (v_top10_all['Item_Name'] != 'Unknown Item')
-                        ]
-                        
-                        if not valid_items_df.empty:
-                            bottom10_grp = valid_items_df.groupby('Item_Name')['Sales_Val'].sum()
-                            bottom10_items = bottom10_grp.nsmallest(10).index.tolist()
+                        if not v_top10_all.empty:
+                            bottom10_df = valid_items_df.nsmallest(10, 'Sales_Val')
                             
-                            bottom10_df = valid_items_df[valid_items_df['Item_Name'].isin(bottom10_items)].set_index([group_col, 'Item_Name'])
+                            # Create a display copy and add the Grand Total row
+                            disp_bot10 = bottom10_df.copy()
+                            disp_bot10.loc['Grand Total'] = disp_bot10[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum()
+                            disp_bot10.at['Grand Total', 'Item_Name'] = 'GRAND TOTAL'
                             
-                            try:
-                                b10_pivot = bottom10_df.unstack(level=0, fill_value=0)
-                                b10_pivot[('Sales_Val', 'TOTAL')] = b10_pivot['Sales_Val'].sum(axis=1)
-                                b10_pivot = b10_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=True)
-                                st.dataframe(b10_pivot.style.format("${:,.2f}"))
-                                chart_data = b10_pivot[('Sales_Val', 'TOTAL')].rename("Total Sales")
-                                st.bar_chart(chart_data)
-                            except Exception as e:
-                                st.error(f"Error in Bottom 10: {e}")
+                            st.dataframe(disp_bot10.style.format({c: "{:,.2f}" for c in ['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']}), hide_index=True, use_container_width=True)
+                            st.bar_chart(bottom10_df.set_index('Item_Name')['Sales_Val']) # Use original df for chart
                         else:
                             st.info("No valid sales data for Bottom 10.")
                     st.divider()
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        # 1. Store Qty (Pivoted like visual)
+                        workbook = writer.book
+                        
+                        # --- Custom Excel Formats ---
+                        title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'color': '#1F497D'})
+                        cell_fmt = workbook.add_format({'border': 1, 'valign': 'vcenter'})
+                        num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'valign': 'vcenter'})
+                        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+                        int_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'valign': 'vcenter'})
+                        total_int_fmt = workbook.add_format({'num_format': '#,##0', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+                        total_num_fmt = workbook.add_format({'num_format': '#,##0.00', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+                        
+                        # --- Header Color Formats ---
+                        header_base = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': 'black'})
+                        fmt_dist = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#B4C6E7', 'font_color': 'black'}) # Light Blue
+                        fmt_sales = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F8CBAD', 'font_color': 'black'}) # Light Orange
+                        fmt_waste = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6E0B4', 'font_color': 'black'}) # Light Green
+                        fmt_calc = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFE699', 'font_color': 'black'}) # Light Yellow
+                        
+                        # Helper to pick the right color
+                        def get_fmt(metric_name):
+                            m = str(metric_name).upper()
+                            if 'DIST' in m: return fmt_dist
+                            if 'SALES' in m: return fmt_sales
+                            if 'WASTE' in m: return fmt_waste
+                            if 'STR' in m or 'PROFIT' in m or 'BALANCE' in m: return fmt_calc
+                            return header_base
+
+                        def format_pivot(df, sheet_name, title, col_w=20):
+                            if df.empty: return
+                            
+                            # 1. Calculate Grand Total
+                            totals = df.sum(numeric_only=True)
+                            
+                            # 2. Write Data to Excel
+                            df.to_excel(writer, sheet_name=sheet_name, startrow=2)
+                            ws = writer.sheets[sheet_name]
+                            
+                            # 3. Add Title
+                            ws.write(0, 0, title, title_fmt)
+                            
+                            # 4. Apply column widths
+                            idx_cols = df.index.nlevels
+                            num_cols = len(df.columns)
+                            hdr_rows = df.columns.nlevels
+                            total_row = 2 + hdr_rows + len(df.index) 
+                            
+                            ws.set_column(0, idx_cols - 1, col_w, cell_fmt)
+                            for c_idx, col_tuple in enumerate(df.columns):
+                                excel_c = idx_cols + c_idx
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                c_fmt = int_fmt if 'STR%' in str(metric).upper() else num_fmt
+                                ws.set_column(excel_c, excel_c, 14, c_fmt)
+                            
+                            # 5. Paint Dynamic Colored Headers
+                            # Format the Index headers (e.g. Store, Item Name)
+                            for i, idx_name in enumerate(df.index.names):
+                                name = str(idx_name) if idx_name else ""
+                                for r in range(2, 2 + hdr_rows):
+                                    val = name if r == 2 + hdr_rows - 1 else ""
+                                    ws.write(r, i, val, header_base)
+
+                            # Format the Data headers based on the Metric name
+                            for c_idx, col_tuple in enumerate(df.columns):
+                                excel_c = idx_cols + c_idx
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                c_fmt = get_fmt(metric)
+                                
+                                if isinstance(col_tuple, tuple):
+                                    for r_idx, val in enumerate(col_tuple):
+                                        ws.write(2 + r_idx, excel_c, str(val), c_fmt)
+                                else:
+                                    ws.write(2, excel_c, str(col_tuple), c_fmt)
+                                
+                            # 6. Format Grand Total Row
+                            ws.set_row(total_row, 20, total_fmt)
+                            if idx_cols > 1:
+                                ws.merge_range(total_row, 0, total_row, idx_cols - 1, "GRAND TOTAL", total_fmt)
+                            else:
+                                ws.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
+                                
+                            for col in range(idx_cols, idx_cols + num_cols):
+                                val = totals.iloc[col - idx_cols]
+                                col_tuple = df.columns[col - idx_cols]
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                t_fmt = total_int_fmt if 'STR%' in str(metric).upper() else total_num_fmt
+                                ws.write_number(total_row, col, val, t_fmt)
+
+                        # --- 1. Store Qty ---
                         qty_pivot = v_s_qty.unstack(level=0).fillna(0)
                         metrics = qty_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
                             m_cols = qty_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols:
-                                qty_pivot[c] = pd.to_numeric(qty_pivot[c], errors='coerce').fillna(0)
+                            for c in m_cols: qty_pivot[c] = pd.to_numeric(qty_pivot[c], errors='coerce').fillna(0)
                             qty_pivot[(m, 'TOTAL')] = qty_pivot[m_cols].sum(axis=1)
                         if ('Sales_Qty', 'TOTAL') in qty_pivot.columns:
                             qty_pivot = qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
-                        if ('Dist_Qty', 'TOTAL') in qty_pivot.columns:
-                            qty_pivot = qty_pivot.sort_values(('Dist_Qty', 'TOTAL'), ascending=False)
-                        qty_pivot.to_excel(writer, sheet_name='Store QTY Analysis')
-                        
-                        # 2. Store Value (Pivoted like visual)
+                        format_pivot(qty_pivot, 'Store Qty', "📊 STORE QUANTITY ANALYSIS", col_w=35)
+
+                        # --- 2. Store Value ---
                         val_pivot = v_s_val.unstack(level=0).fillna(0)
                         metrics = val_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
                             m_cols = val_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols:
-                                val_pivot[c] = pd.to_numeric(val_pivot[c], errors='coerce').fillna(0)
+                            for c in m_cols: val_pivot[c] = pd.to_numeric(val_pivot[c], errors='coerce').fillna(0)
                             val_pivot[(m, 'TOTAL')] = val_pivot[m_cols].sum(axis=1)
                         if ('Sales_Val', 'TOTAL') in val_pivot.columns:
                             val_pivot = val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
-                        if ('Dist_Val', 'TOTAL') in val_pivot.columns:
-                            val_pivot = val_pivot.sort_values(('Dist_Val', 'TOTAL'), ascending=False)
-                        val_pivot.to_excel(writer, sheet_name='Store Value Analysis')
-                        
-                        # 3. Item Qty Summary (Top Items by Qty)
+                        format_pivot(val_pivot, 'Store $', "💰 STORE VALUE ANALYSIS", col_w=35)
+
+                        # --- 3. Item Qty Summary ---
                         item_qty_pivot = v_i_qty.unstack(level=0).fillna(0)
                         metrics = item_qty_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
                             m_cols = item_qty_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols:
-                                item_qty_pivot[c] = pd.to_numeric(item_qty_pivot[c], errors='coerce').fillna(0)
+                            for c in m_cols: item_qty_pivot[c] = pd.to_numeric(item_qty_pivot[c], errors='coerce').fillna(0)
                             item_qty_pivot[(m, 'TOTAL')] = item_qty_pivot[m_cols].sum(axis=1)
                         if ('Sales_Qty', 'TOTAL') in item_qty_pivot.columns:
                             item_qty_pivot = item_qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
-                        if ('Dist_Qty', 'TOTAL') in item_qty_pivot.columns:
-                            item_qty_pivot = item_qty_pivot.sort_values(('Dist_Qty', 'TOTAL'), ascending=False)
-                        item_qty_pivot.to_excel(writer, sheet_name='Item QTY Summary')
+                        format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY", col_w=30)
 
-                        # 4. Item Value Summary (Top Items by Value)
+                        # --- 4. Item Value Summary ---
                         item_val_pivot = v_i_val.unstack(level=0).fillna(0)
                         metrics = item_val_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
                             m_cols = item_val_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols:
-                                item_val_pivot[c] = pd.to_numeric(item_val_pivot[c], errors='coerce').fillna(0)
+                            for c in m_cols: item_val_pivot[c] = pd.to_numeric(item_val_pivot[c], errors='coerce').fillna(0)
                             item_val_pivot[(m, 'TOTAL')] = item_val_pivot[m_cols].sum(axis=1)
                         if ('Sales_Val', 'TOTAL') in item_val_pivot.columns:
                             item_val_pivot = item_val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
-                        if ('Dist_Val', 'TOTAL') in item_val_pivot.columns:
-                            item_val_pivot = item_val_pivot.sort_values(('Dist_Val', 'TOTAL'), ascending=False)
-                        item_val_pivot.to_excel(writer, sheet_name='Item Value Summary')
+                        format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY", col_w=30)
 
-                        # 5. Top 10 Data
+                        # --- 5. Combined Top & Bottom 10 ---
                         if not v_top10_all.empty:
-                            # Group to get total sales per item for the list
-                            top10_export = v_top10_all.groupby('Item_Name')['Sales_Val'].sum().sort_values(ascending=False).head(10).reset_index()
-                            top10_export.to_excel(writer, sheet_name='Top 10 Items', index=False)
-
-                        # 6. Master Data (Raw combined data)
+                            ws5 = workbook.add_worksheet('TOP&BTM 10')
+                            
+                            valid_items_df = v_top10_all[(~v_top10_all['Item_Name'].str.startswith('Item ')) & (v_top10_all['Item_Name'] != 'Unknown Item')]
+                            
+                            top10_df = valid_items_df.nlargest(10, 'Sales_Val')
+                            top10_df.columns = ['Top 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
+                            
+                            bottom10_df = valid_items_df.nsmallest(10, 'Sales_Val')
+                            bottom10_df.columns = ['Bottom 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
+                            
+                            ws5.write(0, 0, "🏆 TOP 10 ITEMS BY SALES", title_fmt)
+                            top10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=2, index=False)
+                            
+                            ws5.write(15, 0, "📉 BOTTOM 10 ITEMS BY SALES", title_fmt)
+                            bottom10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=17, index=False)
+                            
+                            # Format Column widths
+                            ws5.set_column('A:A', 40, cell_fmt)
+                            ws5.set_column('B:E', 15, num_fmt)
+                            
+                            # Loop through both tables to apply Colors AND Grand Totals
+                            tables = [
+                                (2, 'Top 10 Items', top10_df), 
+                                (17, 'Bottom 10 Items', bottom10_df)
+                            ]
+                            
+                            for start_r, title, df_subset in tables:
+                                # Apply Color-Coded Headers
+                                ws5.write(start_r, 0, title, header_base)
+                                ws5.write(start_r, 1, 'Dist_Val', fmt_dist)    # Light Blue
+                                ws5.write(start_r, 2, 'Sales_Val', fmt_sales)  # Light Orange
+                                ws5.write(start_r, 3, 'Waste_Val', fmt_waste)  # Light Green
+                                ws5.write(start_r, 4, 'Profit', fmt_calc)      # Light Yellow
+                                
+                                # Add Grand Total Row dynamically at the bottom of the table
+                                total_row = start_r + len(df_subset) + 1
+                                ws5.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
+                                ws5.write_number(total_row, 1, df_subset['Dist_Val'].sum(), total_num_fmt)
+                                ws5.write_number(total_row, 2, df_subset['Sales_Val'].sum(), total_num_fmt)
+                                ws5.write_number(total_row, 3, df_subset['Waste_Val'].sum(), total_num_fmt)
+                                ws5.write_number(total_row, 4, df_subset['Profit'].sum(), total_num_fmt)
+                        # --- 6. Master Data ---
                         df.to_excel(writer, sheet_name='Master Data Raw', index=False)
 
                     excel_data = output.getvalue()
@@ -1342,7 +1375,7 @@ def main_app_interface(authenticator, name, permissions):
                                 write_to_sheet(urls['h'], f"Rep_{rep_name}_StoreVal", v_s_val)
                                 write_to_sheet(urls['h'], f"Rep_{rep_name}_ItemQty", v_i_qty)
                                 write_to_sheet(urls['h'], f"Rep_{rep_name}_ItemVal", v_i_val)
-                                write_to_sheet(urls['h'], f"Rep_{rep_name}_Top10", v_top10)
+                                write_to_sheet(urls['h'], f"Rep_{rep_name}_Top10", v_top10_all)
                                 write_to_sheet(urls['h'], f"Rep_{rep_name}_Master", df)
                                 st.success("✅ Saved!")
                         else: st.error("Need URL & Name")
