@@ -1260,7 +1260,6 @@ def main_app_interface(authenticator, name, permissions):
                                 
                                 # Check if this column is an STR% column
                                 if 'STR%' in str(metric).upper():
-                                    # Dynamically find the matching Sales_Qty and Dist_Qty totals for this specific week/month
                                     if time_key is not None:
                                         s_tot = totals.get(('Sales_Qty', time_key), 0)
                                         d_tot = totals.get(('Dist_Qty', time_key), 0)
@@ -1268,14 +1267,15 @@ def main_app_interface(authenticator, name, permissions):
                                         s_tot = totals.get('Sales_Qty', 0)
                                         d_tot = totals.get('Dist_Qty', 0)
                                     
-                                    # Calculate true formula percentage, guard against division by zero
+                                    # Calculate true formula percentage
                                     val = (s_tot / d_tot * 100) if d_tot > 0 else 0.0
-                                    val = round(val, 0) # Whole number integer format
-                                    t_fmt = total_int_fmt
+                                    val = round(val, 0) # Drop all decimals completely
+                                    t_fmt = total_int_fmt # Force no-decimal integer layout
                                 else:
-                                    # For standard metrics, use the standard sum total
+                                    # Standard metrics use standard sum totals
                                     val = totals.iloc[col - idx_cols]
-                                    t_fmt = total_int_fmt if 'QTY' in str(metric).upper() or 'STOCK' in str(metric).upper() else total_num_fmt
+                                    # Keep decimals for values, drop them if it's an item count quantity
+                                    t_fmt =total_num_fmt
                                 
                                 ws.write_number(total_row, col, val, t_fmt)
 
