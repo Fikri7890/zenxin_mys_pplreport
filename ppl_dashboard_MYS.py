@@ -57,190 +57,63 @@ def get_saved_reports(url):
         return sorted(list(reports), reverse=True)
     except: return []
 
+def get_rank_table(df, group_col, sort_by='Profit', top=True, n=10):
+    # 1. Calculate totals per item for the sort_by metric to get the ranking
+    totals = df.groupby('Item_Name')[sort_by].sum()
+    
+    # 2. Get the items
+    if top:
+        ranked_items = totals.nlargest(n).index
+    else:
+        ranked_items = totals.nsmallest(n).index
+        
+    # 3. Filter the dataframe
+    subset = df[df['Item_Name'].isin(ranked_items)]
+    
+    # 4. Create the Pivot Table
+    pivot_df = subset.pivot_table(
+        index='Item_Name', 
+        columns=group_col, 
+        values=['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit'], 
+        aggfunc='sum'
+    ).fillna(0)
+    
+    # 5. NEW: Add the TOTAL columns for every metric so we can sort by them
+    metrics = pivot_df.columns.get_level_values(0).unique()
+    for m in metrics:
+        pivot_df[(m, 'TOTAL')] = pivot_df[m].sum(axis=1)
+    
+    # 6. Sort columns order
+    metric_order = {'Dist_Val': 0, 'Sales_Val': 1, 'Waste_Val': 2, 'Profit': 3}
+    pivot_df = pivot_df.sort_index(axis=1, key=lambda x: [metric_order.get(m, 99) for m in x.get_level_values(0)])
+    
+    # 7. Sort the rows by Profit Total (Now this will work because the column exists)
+    pivot_df = pivot_df.sort_values(by=('Profit', 'TOTAL'), ascending=not top)
+    
+    return pivot_df
 # --- 2. DATA PROCESSING HELPERS ---
 def normalize_store_name(name, report_type='AEON', loc_map=None):
-    if pd.isna(name): return "UNKNOWN"
-    # Crush any double spaces or invisible tabs into a single space
-    name = re.sub(r'\s+', ' ', str(name)).strip().upper()
+    if pd.isna(name) or str(name).strip() == "": return "UNKNOWN"
+    
+    raw_name = str(name).strip() # Keep original format for the error message
+    name = re.sub(r'\s+', ' ', raw_name).upper() # Cleaned version for matching
 
     if report_type in ['AEON', 'AEON DF']:
         if loc_map and name in loc_map:
             return loc_map[name]
-        return name
+        return f"UNMAPPED - {raw_name}"
     
     elif report_type in ['TFP', 'TFP DF']:
-        # 1. First, check for an exact match in the Loc tab dictionary
         if loc_map and name in loc_map:
             return loc_map[name]
         
-        # 2. If no exact match, see if the name contains a code like "BBT"
-        # We look for the code at the start of the string (e.g., "BBT - BIG BATAI")
         if loc_map:
             for code in loc_map.keys():
-                # If the name starts with the code (e.g., "BBT"), use that mapped value
                 if name.startswith(code):
                     return loc_map[code]
+        return f"UNMAPPED - {raw_name}"
 
-    # elif report_type == 'TFP' or report_type == 'TFP DF':
-    #     if name == 'BBT - BIG BATAI': return "VG Ben's Batai (BBT)-KUL"
-    #     if name == "VG BEN'S BATAI (BBT)-KUL": return "VG Ben's Batai (BBT)-KUL"
-    #     if name == 'BIP - BIG IPC': return "VG Ben's Ipc (BIP)-KUL"
-    #     if name == "VG BEN'S IPC (BIP)-KUL": return "VG Ben's Ipc (BIP)-KUL"
-    #     if name == 'BLI - BIG THE LINC': return "VG Ben's Linc (BLI)-KUL"
-    #     if name == "VG BEN'S LINC (BLI)-KUL": return "VG Ben's Linc (BLI)-KUL"
-    #     if name == 'BMM - BIG MALL OF MEDINI': return "VG Ben's Mall (BMM)-JHR"
-    #     if name == "VG BEN'S MALL (BMM)-JHR": return "VG Ben's Mall (BMM)-JHR"
-    #     if name == 'BPS - BIG PUBLIKA': return "VG Ben's Publika (BPS)-KUL"
-    #     if name == "VG BEN'S PUBLIKA (BPS)-KUL": return "VG Ben's Publika (BPS)-KUL"
-    #     if name == "VG BEN'S PUBLIKA (BPS)-KUL HC001500-4001": return "VG Ben's Publika (BPS)-KUL"
-    #     if name == 'BSC - BSC FINE FOODS': return "VG Ben's (BSC)-KUL"
-    #     if name == "VG BEN'S (BSC)-KUL": return "VG Ben's (BSC)-KUL"
-    #     if name == "VG BEN'S BATAI (BBT)-KUL HC001500-4002": return "VG Ben's (BSC)-KUL"
-    #     if name == "VG BEN'S (BSC)-KUL HC001500-4011" : return "VG Ben's (BSC)-KUL"
-    #     if name == "VG Ben's Batai (BBT)-KUL" : return  "VG Ben's (BSC)-KUL"
-    #     if name == 'LGC - LEISURE MALL': return 'VG Leisure Mall (LGC)-KUL'
-    #     if name == 'VG LEISURE MALL (LGC)-KUL HC001500-3019': return 'VG Leisure Mall (LGC)-KUL'
-    #     if name == 'VG LEISURE MALL (LGC)-KUL': return 'VG Leisure Mall (LGC)-KUL'
-    #     if name == 'VAD - ARA DAMANSARA': return 'VG Citta Mall (VAD)-KUL'
-    #     if name == 'VG CITTA MALL (VAD)-KUL HC001500-3005': return 'VG Citta Mall (VAD)-KUL'
-    #     if name == 'VG CITTA MALL (VAD)-KUL': return 'VG Citta Mall (VAD)-KUL'
-    #     if name == 'VAK - AVENUE K': return 'VG Avenue K (VAK)-KUL'
-    #     if name == 'VG AVENUE K (VAK)-KUL': return 'VG Avenue K (VAK)-KUL'
-    #     if name == 'VG AVENUE K (VAK)-KUL HC001500-3006': return 'VG Avenue K (VAK)-KUL'
-    #     if name == 'VCJ - CITY JUNCTION': return 'VG City Junction (VCJ)-PNG'
-    #     if name == 'VG CITY JUNCTION (VCJ)-PNG': return 'VG City Junction (VCJ)-PNG'
-    #     if name == 'VDJ - DAMANSARA JAYA': return 'VG Atria (VDJ)-KUL'
-    #     if name == 'VG ATRIA (VDJ)-KUL HC001500-3004': return 'VG Atria (VDJ)-KUL'
-    #     if name == 'VG ATRIA (VDJ)-KUL': return 'VG Atria (VDJ)-KUL'
-    #     if name == 'VDP - DP ARKADIA': return 'VG Desa Park City (VDP)-KUL'
-    #     if name == 'VG DESA PARK CITY (VDP)-KUL': return 'VG Desa Park City (VDP)-KUL'
-    #     if name == 'VG DESA PARK CITY (VDP)-KUL HC001500-3008': return 'VG Desa Park City (VDP)-KUL'
-    #     if name == 'VEC - EKOCHERAS': return 'VG Eko Cheras (VEC)-KUL'
-    #     if name == 'VG EKO CHERAS (VEC)-KUL': return 'VG Eko Cheras (VEC)-KUL'
-    #     if name == 'VG EKO CHERAS (VEC)-KUL HC001500-3012': return 'VG Eko Cheras (VEC)-KUL'
-    #     if name == 'VEM - EMPIRE CITY': return 'VG Empire City-KUL'
-    #     if name == 'VG EMPIRE CITY (VEM)-KUL': return 'VG Empire City-KUL'
-    #     if name == 'VGB - BANGSAR VILLAGE': return 'VG Bangsar Village (VGB)-KUL'
-    #     if name == 'VG BANGSAR VILLAGE (VGB)-KUL': return 'VG Bangsar Village (VGB)-KUL'
-    #     if name == 'VG BANGSAR VILLAGE (VGB)-KUL HC001500-3003': return 'VG Bangsar Village (VGB)-KUL'
-    #     if name == '2 VG BANGSAR VILLAGE (VGB)-KUL': return 'VG Bangsar Village (VGB)-KUL'
-    #     if name == 'VGG - GIZA': return 'VG Giza (VGG)-KUL'
-    #     if name == 'VG GIZA (VGG)-KUL HC001500-3002': return 'VG Giza (VGG)-KUL'
-    #     if name == 'VG GIZA (VGG)-KUL': return 'VG Giza (VGG)-KUL'
-    #     if name == 'VGO - MONT KIARA': return 'VG Mont Kiara (VGO)-KUL'
-    #     if name == 'VG KIARA BAY-KUL': return 'VG Kiara Bay-KUL'
-    #     if name == 'VG MONT KIARA (VGO)-KUL': return 'VG Mont Kiara (VGO)-KUL'
-    #     if name == 'VG MONT KIARA (VGO)-KUL HC001500-3001': return 'VG Mont Kiara (VGO)-KUL'
-    #     if name == '3 VG MONT KIARA (VGO)-KUL': return 'VG Mont Kiara (VGO)-KUL'
-    #     if name == 'VHS - HARTAMAS SHOPPING CENTER': return 'VG Sri Hartamas (VHS)-KUL'
-    #     if name == 'VG SRI HARTAMAS (VHS)-KUL' : return 'VG Sri Hartamas (VHS)-KUL'
-    #     if name == 'VIK - IOI MALL KULAI': return 'VG IOI Mall Kulai (VIK)-JHR'
-    #     if name == 'VG IOI Mall Kulai (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
-    #     if name == 'VG IOI MALL KULAI (VIK)-JHR': return 'VG IOI Mall Kulai (VIK)-JHR'
-    #     if name == 'VIM - IOI MALL PUCHONG': return 'VG Puchong-KUL'
-    #     if name == 'VG PUCHONG-KUL': return 'VG Puchong-KUL'
-    #     if name == 'VG PUCHONG-KUL HC001500-3025': return 'VG Puchong-KUL'
-    #     if name == 'VKB - KIARA BAY': return 'VG Kiara Bay-KUL'
-    #     if name == 'VLH - LAMAN SERI HARMONI': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-    #     if name == 'VG Laman Seri Harmoni 33 (VLH)-KUL': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-    #     if name == 'VG LAMAN SERI HARMONI 33 (VLH)-KUL': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-    #     if name == 'VG LAMAN SERI HARMONI 33 (VLH)-KUL HC001500-3035': return 'VG Laman Seri Harmoni 33 (VLH)-KUL'
-    #     if name == 'VMN - MYRA NILAI': return 'VG Myra Park Marketplace-KUL'
-    #     if name == 'VG MYRA PARK MARKETPLACE-KUL HC001500-4013': return 'VG Myra Park Marketplace-KUL'
-    #     if name == 'VG MYRA PARK MARKETPLACE-KUL': return 'VG Myra Park Marketplace-KUL'
-    #     if name == 'VMT - MYTOWN': return 'VG My Town-KUL'
-    #     if name == 'VG MY TOWN-KUL': return 'VG My Town-KUL'
-    #     if name == 'VPM - PARADIGM MALL JB': return 'VG Paradigm Mall (VPM)-JHR'
-    #     if name == 'VG PARADIGM MALL (VPM)-JHR': return 'VG Paradigm Mall (VPM)-JHR'
-    #     if name == 'VPS - 168 PARK SELAYANG': return 'VG Selayang 168-KUL'
-    #     if name == 'VG SELAYANG 168-KUL' : return 'VG Selayang 168-KUL'
-    #     if name == 'VQW - QUEENS WATERFRONT PENANG': return 'VG Queen (VQW)-PNG'
-    #     if name == 'VG QUEEN (VQW)-PNG': return 'VG Queen (VQW)-PNG'
-    #     if name == 'VSK - SOUTHKEY': return 'VG Midvalley Southkey (VSK)-JHR'
-    #     if name == 'VG MIDVALLEY SOUTHKEY (VSK)-JHR': return 'VG Midvalley Southkey (VSK)-JHR'
-    #     if name == 'VSP - SUBANG PARADE': return 'VG Subang Parade (VSP)-KUL'
-    #     if name == 'VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
-    #     if name == '2 VG SUBANG PARADE (VSP)-KUL': return 'VG Subang Parade (VSP)-KUL'
-    #     if name == 'VG SUBANG PARADE (VSP)-KUL HC001500-3014' : return 'VG Subang Parade (VSP)-KUL'
-    #     if name == 'VSQ - SUNWAY SQUARE': return 'VG Sunway Square Mall (VSQ)-KUL'
-    #     if name == 'VG SUNWAY SQUARE MALL (VSQ)-KUL' : return 'VG Sunway Square Mall (VSQ)-KUL'
-    #     if name == 'VSS - SIERRA FRESCO': return 'VG Sierras Fresco-KUL'
-    #     if name == 'VG SIERRAS FRESCO (VSS)-KUL' : return 'VG Sierras Fresco-KUL'
-    #     if name == 'VG SIERRAS FRESCO-KUL' : return 'VG Sierras Fresco-KUL'
-    #     if name == 'VTS - TAMARIND SQUARE': return 'VG Tamarind Square (VTS)-KUL'
-    #     if name == 'VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
-    #     if name == 'VG TAMARIND SQUARE (VTS)-KUL HC001500-4016': return 'VG Tamarind Square (VTS)-KUL'
-    #     if name == 'XXX VG TAMARIND SQUARE (VTS)-KUL': return 'VG Tamarind Square (VTS)-KUL'
-    #     if name == 'VBM - BUKIT MERTAJAM': return 'VG Vangohh Eminent (VBM)-PNG'
-    #     if name == 'VG VANGOHH EMINENT (VBM)-PNG' : return 'VG Vangohh Eminent (VBM)-PNG'
-
-    #     return name
-    
-    elif report_type == 'NTUC':
-        name = re.sub(r'^\d+\s*-\s*', '', name)
-        name = name.replace('FPX-', '').strip()
-        if name == 'BUKIT TIMAH PLAZA-PM' : return 'BUKIT TIMAH PLAZA'
-        if name == 'CLEMENTI MALL-PM' : return 'CLEMENTI MALL'
-        if name == 'FUNAN-PM' : return 'FUNAN'
-        if name == 'BALMORAL PLAZA-PM' : return 'BALMORAL PLAZA'
-        if name == 'BEDOK MALL-APM' : return 'BEDOK MALL'
-        if name == 'CLEMENTI MALL FINEST' : return 'CLEMENTI MALL'
-        if name == 'FINEST @ THE WOODLEIGH MALL' : return 'WOODLEIGH MALL'
-        if name == 'BEDOK MALL FINEST' : return 'BEDOK MALL'
-        if name == 'FINEST @SCOTTS SQUARE' :return 'SCOTTS SQUARE'
-        if name == 'WOODLANDS CAUSEWAY POINT' : return 'CAUSEWAY POINT'
-        if name == 'HOUGANG A' : return 'HOUGANG A 202'
-        if name == 'SENGKANG GRAND' : return 'SENGKANG GRAND MALL'
-        if name == 'FINEST @VALLEY POINT' : return 'VALLEY POINT FINEST'
-        if name == 'YEW TEE MRT FINEST' : return 'YEW TEE MRT'
-        if name == 'ANG MO KIO BLK 712 (B)' : return 'ANG MO KIO BLK712'
-        if name == 'CENTURY SQUARE FINEST': return 'CENTURY SQUARE'
-        if name == 'RAFFLES HOLLAND V HALL' : return 'RAFFLES HOLLAND V'
-        if name == 'DAIRY FARM RESIDENCES FINEST' : return 'DFARM'
-        if name == 'JEWEL CHANGI AIRPORT .' : return 'JEWEL'
-        if name == 'KOMO SHOPPES FINEST' : return 'KOMO' 
-        if name == 'CORONATION PLAZA BUKIT TIMAH': return 'CORONATION PLAZA'
-        if name == 'WHITESANDS' : return 'WHITE SANDS'
-        if name == 'VIVO CITY HYPER-PM' : return 'VIVO CITY HYPER'
-        if name == 'JUNCTION 8-APM' : return 'JUNCTION 8'
-        if name == 'PARKWAY PARADE-PM': return 'HYPER PARKWAY PARADE'
-        if name == 'ZHONGSHAN PARK': return 'ZHONG SHAN PARK'
-        return name
-    
-    elif report_type == 'CS_DRY':
-        if name == 'COMPASS ONE': return 'CS COMPASS ONE'
-        if name == 'CS GREAT WORLD CITY-AM' : return 'CS GREAT WORLD CITY'
-        if name == 'CS GREAT WORLD CITY-PM' : return 'CS GREAT WORLD CITY'
-        if name == 'MP TANGLIN-AM' : return 'MP TANGLIN'
-        if name == 'MP TANGLIN-PM' : return 'MP TANGLIN'
-        if name == 'CS PARKWAY PARADE-PM' : return 'CS PARKWAY PARADE'
-        if name == 'CS I12 KATONG-PM' : return 'CS I12 KATONG'
-        if name == 'CS 1 HOLLAND-PM' : return 'CS 1 HOLLAND'
-        if name == 'CS CHANCERY COURT 2-PM' : return 'CS CHANCERY COURT'
-        if name == 'CHANCERY COURT 2' : return 'CS CHANCERY COURT'
-        if name == 'CS ONE HOLLAND VILLAGE-PM' : return 'CS ONE HOLLAND VILLAGE'
-        if name == 'ONE HOLLAND VILLAGE' : return 'CS ONE HOLLAND VILLAGE'
-        if name == 'ANCHORPOINT 3' :  return 'CS ANCHORPOINT 3'
-        if name == 'JOO CHIAT' : return 'CS JOO CHIAT'
-        if name == 'JS SENTOSA QUAYSIDE-PM' : return 'JS SENTOSA QUAYSIDE'
-        if name == 'CS ALOCASSIA-PM' : return 'CS ALOCASSIA'
-        if name == 'CS CLUNY COURT-PM' : return 'CS CLUNY COURT'
-        if name == 'CS MARINA ONE-PM' : return 'CS MARINA ONE'
-        if name == 'CS GUTHRIE HOUSE-PM' : return 'CS GUTHRIE HOUSE'
-        if name == 'CS ORCHARD HOTEL-AM' : return 'CS ORCHARD HOTEL'
-        if name == 'CS ORCHARD HOTEL-PM' : return 'CS ORCHARD HOTEL'
-        if name == 'CS RAIL MALL-PM' : return 'CS RAIL MALL'
-        if name == 'CS RAIL MALL-AM' : return 'CS RAIL MALL'
-        if name == 'CS SERANGOON NEX-PM' : return 'CS SERANGOON NEX'
-        if name == 'CS UNITED SQUARE-PM' : return 'CS UNITED SQUARE'
-        if name == 'MP HILLVIEW-AM' : return 'MP HILLVIEW'
-        if name == 'MP HILLVIEW-PM' : return 'MP HILLVIEW'
-        if name == 'PASIR RIS MALL' : return 'CS PASIR RIS MALL'
-        if name == 'SUNTEC CITY' : return 'CS SUNTEC CITY'
-        return name
-    
     return name
-
 def clean_id(val):
     if pd.isna(val) or val == '': return "0"
     s = str(val).strip().upper()
@@ -253,24 +126,17 @@ def clean_id(val):
 def clean_currency(val):
     if pd.isna(val) or str(val).strip() == "": return 0.0
     s = str(val).strip().replace('$', '').replace(' ', '')
-    
     if s.endswith(",000"):
         s = s[:-4]
-        if s.count('.') > 1:
-            s = s.replace('.', '')
+        if s.count('.') > 1: s = s.replace('.', '')
         return float(s)
-    
     if ',' in s and '.' not in s:
         s = s.replace(',', '.')
         return float(s)
-
     if ',' in s and '.' in s:
-        if s.rfind(',') < s.rfind('.'):
-            s = s.replace(',', '')
-        else:
-            s = s.replace('.', '').replace(',', '.')
-
-    try:return float(s)
+        if s.rfind(',') < s.rfind('.'): s = s.replace(',', '')
+        else: s = s.replace('.', '').replace(',', '.')
+    try: return float(s)
     except: return 0.0 
 
 def parse_uom_factor(uom_str):
@@ -298,7 +164,6 @@ def strict_rename(df, map_dict):
                 new_cols[col] = target
                 used_targets.add(target)
                 break
-    # Remove duplicates immediately to prevent Series ambiguity
     temp = df.rename(columns=new_cols)
     return temp.loc[:, ~temp.columns.duplicated()]
 
@@ -328,30 +193,23 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     df_dist2 = pd.DataFrame()
     nav_to_article_map = {} 
 
-    if report_type =="AEON":
+    if report_type =="AEON" or report_type == "AEON DF":
         db_cols = {'Article': ['ITEM CODE', 'ITEMCODE'], 'NAV': ['NAV code', 'NAV_CODE', 'No.'], 'ArtDesc': ['NAV Description', 'Description'], 'NavDesc': ['Aeon Item code', 'ArticleDesc'],'UOM': ['UOM PKT/KG (NAV)', 'UOM']}
-        sales_cols ={'Article': ['Article', 'ITEM CODE'], 'Qty': ['SALES QTY','QTY','SALESQTY','Billed Quantity'], 'Val': ['TOTAL SALES','SALESAMOUNT','Total Amount'], 'Store': ['STORE NAME'], 'Date': ['SELLING DATE'], 'Name': ['ITEM DESCRIPTION']}
-        # Fixed Dist to catch the AEON headers
-        #dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure', 'UOM'], 'Name': ['USOFT product description', 'Description', 'Name'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date','Date'], 'Chain': ['External Doc No.']}
-        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
-        waste_cols = {'NAV': ['NAV', 'NAV_CODE'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['Store', 'LONG_NAME'], 'Val': ['Amount', 'TOT_AMT'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
+        # AEON Sales now scans for STORE CODE instead of name
+        sales_cols ={'Article': ['Article', 'ITEM CODE'], 'Qty': ['SALES QTY','QTY','SALESQTY','Billed Quantity'], 'Val': ['TOTAL SALES','SALESAMOUNT','Total Amount'], 'Store': ['STORE CODE'], 'Date': ['SELLING DATE'], 'Name': ['ITEM DESCRIPTION']}
+        # AEON Dist now scans for Transfer-to Code
+        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Transfer-to Code'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
+        # AEON Waste now scans for CNO
+        waste_cols = {'NAV': ['NAV', 'NAV_CODE'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['CNO'], 'Val': ['Amount', 'TOT_AMT'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
 
-    elif report_type == "AEON DF":
-        db_cols = {'Article': ['ITEM CODE', 'ITEMCODE'], 'NAV': ['NAV code', 'NAV_CODE', 'No.'], 'ArtDesc': ['NAV Description', 'Description'], 'NavDesc': ['Aeon Item code', 'ArticleDesc'],'UOM': ['UOM PKT/KG (NAV)', 'UOM'], 'RSP': ['RSP']}
-        sales_cols ={'Article': ['Article', 'ITEM CODE'], 'Qty': ['SALES QTY','QTY','SALESQTY','Billed Quantity'], 'Val': ['TOTAL SALES','SALESAMOUNT','Total Amount'], 'Store': ['STORE NAME'], 'Date': ['SELLING DATE'], 'Name': ['ITEM DESCRIPTION']}
-        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
-        waste_cols = {'NAV': ['NAV', 'NAV_CODE'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['Store', 'LONG_NAME'], 'Val': ['Amount', 'TOT_AMT'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
-
-    elif report_type =="TFP" :
+    elif report_type =="TFP" or report_type =="TFP DF":
         db_cols = {'Article': ['CODE SKU', 'cno_sku'], 'NAV': ['NAV CODE', 'id'], 'ArtDesc': ['Description', 'name1'], 'NavDesc': ['Item No/SKU', 'name2'], 'UOM': ['UOM']}
+        # Sales looks for Location (to extract BBT)
         sales_cols = {'Article': ['SKU NO', '1st Column'], 'Qty': ['Qty Sold', 'Quantity'], 'Val': ['Net Excl Tax', 'Amount'], 'Store': ['Location'], 'Date': ['Sales Date', 'TRXDATE'], 'Name': ['Item']}
-        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
-        waste_cols = {'NAV': ['NAV_CODE', 'NAV'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['LONG_NAME', 'Store'], 'Val': ['TOT_AMT', 'Amount'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
-    elif report_type =="TFP DF" :
-        db_cols = {'Article': ['CODE SKU', 'cno_sku'], 'NAV': ['NAV CODE', 'id'], 'ArtDesc': ['Description', 'name1'], 'NavDesc': ['Item No/SKU', 'name2'], 'UOM': ['UOM']}
-        sales_cols = {'Article': ['SKU NO', '1st Column'], 'Qty': ['Qty Sold', 'Quantity'], 'Val': ['Net Excl Tax', 'Amount'], 'Store': ['Location'], 'Date': ['Sales Date', 'TRXDATE'], 'Name': ['Item']}
-        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
-        waste_cols = {'NAV': ['NAV_CODE', 'NAV'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['LONG_NAME', 'Store'], 'Val': ['TOT_AMT', 'Amount'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
+        # Dist looks for Location Code or Transfer-to Code (to extract 3003)
+        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Transfer-to Code'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
+        # Waste looks for CNO (to extract 3012)
+        waste_cols = {'NAV': ['NAV_CODE', 'NAV'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['CNO'], 'Val': ['TOT_AMT', 'Amount'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
     
     elif report_type == "CS_DRY":
         db_cols = {'Article': ['cno_sku'], 'NAV': ['partno'], 'ArtDesc': ['name2'], 'NavDesc': ['name2']}
@@ -367,12 +225,6 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         db_cols = {'Article': ['cno_sku'], 'NAV': ['partno'], 'ArtDesc': ['name2'], 'NavDesc': ['name2']}
         sales_cols = {'Store': ['1st Column'], 'Raw_Item': ['2nd Column']}
         dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['External Doc No.'], 'UOM': ['Unit of Measure', 'UOM'], 'Name': ['USOFT product description', 'Description', 'Name'], 'Cost': ['Unit Price Excl. GST'], 'Date': ['Posting Date','Date'], 'Chain': ['Transfer-to Code']}
-        # No wastage file for CS_DRY
-    # Common Maps
-    # dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Your Reference', 'key'], 'UOM': ['Unit of Measure', 'UOM'], 'Name': ['USOFT product description', 'Description', 'Name'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date','Date'], 'Chain': ['External Doc No.']}
-    # waste_cols = {'NAV': ['NAV', 'NAV_CODE'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['Store', 'LONG_NAME'], 'Val': ['Amount', 'TOT_AMT'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
-
-
 
     # --- A. DATABASE ---
     df_db = find_correct_header_row(df_db_raw,db_cols, "DB Sheet")
@@ -401,57 +253,47 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     if 'UOM' in df_db.columns:
         uom_mapping = df_db.set_index('NAV')['UOM'].to_dict()
     
-    # aeon_loc_map = {}
-    # if (report_type == "AEON" or report_type == "AEON DF") and df_loc_raw is not None:
-    #     loc_sheet_cols = {'RawLoc': ['AEON NAME'], 'NavLoc': ['NAV LOC NAME']}
-    #     df_loc = find_correct_header_row(df_loc_raw, loc_sheet_cols, "Loc")
-        
-    #     if df_loc is not None:
-    #         df_loc = strict_rename(df_loc, loc_sheet_cols)
-    #         df_loc = df_loc.dropna(subset=['RawLoc', 'NavLoc'])
-    #         # Build dictionary: Uppercase the raw name so it matches reliably
-    #         for _, row in df_loc.iterrows():
-    #             k = str(row['RawLoc']).strip()
-    #             v = str(row['NavLoc']).strip()
-                
-    #             # if k and k not in ["NAN", "NONE", ""]: 
-    #             aeon_loc_map[k] = v
+    # --- DUAL-DICTIONARY LOCATION BUILDER ---
+    loc_map_aeon_sales = {}
+    loc_map_tfp_sales = {}
+    loc_map_nav = {}
 
-    loc_map = {}
     if report_type in ["AEON", "AEON DF", "TFP", "TFP DF"] and df_loc_raw is not None:
         if "AEON" in report_type:
-            loc_sheet_cols = {'RawLoc': ['AEON NAME'], 'NavLoc': ['NAV LOC NAME']}
+            loc_sheet_cols = {'AeonCode': ['AEON CODE'], 'NavCode': ['NAV LOC CODE'], 'NavLoc': ['NAV LOC NAME']}
             sheet_title = "Loc"
         else:
-            loc_sheet_cols = {'RawLoc': ['Loc'], 'NavLoc': ['Name']}
+            # TFP pulls Loc (BBT), Code (3001), and Name
+            loc_sheet_cols = {'TfpLoc': ['Loc'], 'TfpCode': ['Code'], 'NavLoc': ['Name']}
             sheet_title = "3 - DATABASE LOCATION"
             
         df_loc = find_correct_header_row(df_loc_raw, loc_sheet_cols, sheet_title)
         
         if df_loc is not None:
             df_loc = strict_rename(df_loc, loc_sheet_cols)
-            df_loc = df_loc.dropna(subset=['RawLoc', 'NavLoc'])
+            df_loc = df_loc.dropna(subset=['NavLoc'])
             for _, row in df_loc.iterrows():
-                k = str(row['RawLoc']).strip()
-                v = str(row['NavLoc']).strip()
-                # if k and k not in ["NAN", "NONE", ""]: 
-                loc_map[k] = v
+                nav_loc = str(row['NavLoc']).strip()
+                
+                if "AEON" in report_type:
+                    ac = str(row.get('AeonCode', '')).replace('.0', '').strip()
+                    nc = str(row.get('NavCode', '')).replace('.0', '').strip()
+                    if ac and ac not in ["NAN", "NONE", ""]: loc_map_aeon_sales[ac] = nav_loc
+                    if nc and nc not in ["NAN", "NONE", ""]: loc_map_nav[nc] = nav_loc
+                else:
+                    tc = str(row.get('TfpLoc', '')).strip().upper()
+                    nc = str(row.get('TfpCode', '')).replace('.0', '').strip()
+                    if tc and tc not in ["NAN", "NONE", ""]: loc_map_tfp_sales[tc] = nav_loc
+                    if nc and nc not in ["NAN", "NONE", ""]: loc_map_nav[nc] = nav_loc
     
     rsp_mapping = {}  
     if (report_type == "AEON" or report_type == "AEON DF") and df_uom_raw is not None:
-        # Find headers for UOM sheet
         uom_sheet_cols = {'Desc': ['Item Description'], 'RSP': ['RSP']}
         df_uom = find_correct_header_row(df_uom_raw, uom_sheet_cols, "UOM Sheet")
-        
         if df_uom is not None:
             df_uom = strict_rename(df_uom, uom_sheet_cols)
             df_uom = df_uom.dropna(subset=['Desc', 'RSP'])
-            # Create a dictionary: {'Org Papaya MYS': 9.5, 'Org Tomato MYS': 22.0}
             rsp_mapping = df_uom.set_index('Desc')['RSP'].apply(clean_currency).to_dict()
-    
-    print("\n--- DB MAPPING PREVIEW ---")
-    print(df_db[['Article', 'NAV', 'Final_Name']].head(5))
-    print("--------------------------\n")
 
     # --- B. SALES ---
     if report_type == "NTUC" or report_type == "NTUC_DRY":
@@ -464,141 +306,109 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
             sales_url = st.session_state['urls']['s'] 
             sh = client.open_by_url(sales_url)
 
-            # 1. FETCH & PROCESS "Quantity" TAB
             try:
                 ws_qty = sh.worksheet("Quantity")
                 df_qty_raw = pd.DataFrame(ws_qty.get_all_values())
                 df_qty_clean = find_correct_header_row(df_qty_raw, sales_cols, "Qty Sheet")
                 df_qty_clean = strict_rename(df_qty_clean, sales_cols)
-                
-                # Exclude 'METRIC' column explicitly to avoid data corruption
                 date_cols_q = [c for c in df_qty_clean.columns if c not in id_vars and 'METRIC' not in str(c).upper()]
                 melt_qty = df_qty_clean.melt(id_vars=id_vars, value_vars=date_cols_q, var_name='Date', value_name='Qty')
-            except Exception as e:
-                st.warning(f"Error loading Quantity tab: {e}")
+            except Exception as e: st.warning(f"Error loading Quantity tab: {e}")
 
-            # 2. FETCH & PROCESS "Sales" TAB (Value)
             try:
                 try: ws_val = sh.worksheet("Sales") 
                 except: ws_val = sh.get_worksheet(0)
-                
                 df_val_raw = pd.DataFrame(ws_val.get_all_values())
                 df_val_clean = find_correct_header_row(df_val_raw, sales_cols, "Sales Sheet")
-                df_val_clean = strict_rename(df_val_clean, sales_cols) # FIX: Use df_val_clean here
-                
-                # Exclude 'METRIC' column explicitly
+                df_val_clean = strict_rename(df_val_clean, sales_cols)
                 date_cols_v = [c for c in df_val_clean.columns if c not in id_vars and 'METRIC' not in str(c).upper()]
                 melt_val = df_val_clean.melt(id_vars=id_vars, value_vars=date_cols_v, var_name='Date', value_name='Val')
-            except Exception as e:
-                st.warning(f"Error loading Sales tab: {e}")
+            except Exception as e: st.warning(f"Error loading Sales tab: {e}")
 
         except Exception as e:
             st.error(f"Critical GSheet Error: {e}")
             return None
 
-        # 3. Handle Empty Dataframes
-        if melt_val.empty: 
-            st.error("Could not fetch Sales Value data.")
-            return None
+        if melt_val.empty: return None
         if melt_qty.empty:
             melt_qty = melt_val.copy()[id_vars + ['Date']]
             melt_qty['Qty'] = 0
 
-        # 4. Cleanup & Merge 
-        # Clean currency symbols just in case ($) and convert to numeric
         melt_val['Val'] = melt_val['Val'].apply(clean_currency)
-        
         melt_qty['Qty'] = pd.to_numeric(melt_qty['Qty'], errors='coerce').fillna(0)
-        
-        # Standardize Date formats 
         melt_val['Date'] = pd.to_datetime(melt_val['Date'], dayfirst=True, errors='coerce')
         melt_qty['Date'] = pd.to_datetime(melt_qty['Date'], dayfirst=True, errors='coerce')
-        
-        # Filter out invalid dates (e.g. if 'Metric' column slipped in)
         melt_val = melt_val.dropna(subset=['Date'])
         melt_qty = melt_qty.dropna(subset=['Date'])
 
         df_sales = pd.merge(melt_val, melt_qty, on=['Store', 'Raw_Item', 'Date'], how='outer').fillna(0)
-
-        # 5. Extract Article Code
         df_sales['Article'] = df_sales['Raw_Item'].astype(str).str.extract(r'(\d+)\s*$')
         df_sales['Name'] = df_sales['Raw_Item'].astype(str).str.rsplit('-', n=1).str[0].str.strip()
 
     else:
-        # Standard Logic (CS / SS)
         df_sales = find_correct_header_row(df_sales_raw, sales_cols, "Sales Sheet")
         if df_sales is None: return None
         df_sales = strict_rename(df_sales, sales_cols)
 
-    # For SS_DRY, set Sales_Qty and Sales_Val to 0.0 if Store is 'TOTAL'
     if report_type == "SS_DRY" and 'Store' in df_sales.columns:
         mask_total = df_sales['Store'].astype(str).str.upper() == 'TOTAL'
         df_sales.loc[mask_total, 'Qty'] = 0.0
         df_sales.loc[mask_total, 'Val'] = 0.0
     
     df_sales['Article'] = df_sales['Article'].apply(clean_id)
-    #df_sales['NAV'] = df_sales['Article'].map(db_mapping_forward).fillna("0")
     df_sales['NAV'] = df_sales['Article'].map(db_mapping_forward).fillna(df_sales['Article'])
 
-    print("\n--- SALES MAPPING PREVIEW ---")
-    print(df_sales[['Store', 'Article', 'NAV', 'Qty', 'Val','Date']].head(5))
-    print("-----------------------------\n")
-    #if 'Name' in df_sales.columns:
-    #   sales_names = df_sales[df_sales['NAV'] != "0"].set_index('NAV')['Name'].to_dict()
     if 'Name' in df_sales.columns:
-        # Grab the names for ALL items, even unmapped ones
         sales_names = df_sales.set_index('NAV')['Name'].to_dict()
         for k, v in sales_names.items():
             if k not in master_name_map: master_name_map[k] = v
      
-    #df_sales = df_sales[df_sales['NAV'] != "0"]
-    df_sales['Store'] = df_sales['Store'].apply(lambda x: normalize_store_name(x, report_type,loc_map))
+    # APPLY STORE MAPPINGS
+    if "AEON" in report_type:
+        def map_aeon_sales(x):
+            code = str(x).replace('.0', '').strip()
+            if code == "" or code == "0": return "UNKNOWN"
+            return loc_map_aeon_sales.get(code, f"UNMAPPED - {code}")
+        df_sales['Store'] = df_sales['Store'].apply(map_aeon_sales)
+    elif "TFP" in report_type:
+        def map_tfp_sales(x):
+            # Split "BBT - BIG BATAI" and grab the first part "BBT"
+            code = str(x).split('-')[0].strip().upper()
+            if code == "" or code == "0": return "UNKNOWN"
+            return loc_map_tfp_sales.get(code, f"UNMAPPED - {code}")
+        df_sales['Store'] = df_sales['Store'].apply(map_tfp_sales)
+
     df_sales['Qty'] = df_sales['Qty'].apply(clean_currency)
     df_sales['Val'] = df_sales['Val'].apply(clean_currency)
-    if report_type == 'AEON' or report_type == 'AEON DF' or report_type == 'TFP' or report_type == 'TFP DF':
-        # Map the UOM string from the database using the NAV code
+    
+    if report_type in ['AEON', 'AEON DF', 'TFP', 'TFP DF']:
         df_sales['UOM_Str'] = df_sales['NAV'].map(uom_mapping).fillna('KG')
         df_sales['DB_Item_Name'] = df_sales['NAV'].map(df_db.set_index('NAV')['Final_Name'].to_dict())
         df_sales['RSP_Val'] = df_sales['DB_Item_Name'].map(rsp_mapping).fillna(0.0)
-        # Use your existing parse_uom_factor function to convert strings like '300GEA' into 0.3
         def calc_aeon_qty(row):
-            # If it's a KG item AND we found its price
             if row['UOM_Str'] == 'KG' and row['RSP_Val'] > 0:
-                # Qty = Total Sales RM / Retail Price RM
                 return row['Val'] / row['RSP_Val']
             else:
-                # Otherwise, it's a packet, so multiply by UOM factor (e.g. 300g = 0.3)
                 factor = parse_uom_factor(row['UOM_Str'])
                 return row['Qty'] * factor
         df_sales['Qty'] = df_sales.apply(calc_aeon_qty, axis=1)
         df_sales = df_sales.drop(columns=['UOM_Str', 'RSP_Val', 'DB_Item_Name'], errors='ignore')
-        # df_sales['UOM_Factor'] = df_sales['UOM_Str'].apply(parse_uom_factor)
-        # # Multiply original Qty by the factor to get KG
-        # df_sales['Qty'] = df_sales['Qty'] * df_sales['UOM_Factor']
-    
-            # Cold Storage: 2025.12.31 (Year.Month.Day)
-    # Handle Sales Dates
+
     if 'Date' in df_sales.columns:
         if report_type == 'SS_DRY':
             df_sales['Year'] = df_sales['Date'].astype(str).replace(r'\.0$', '', regex=True)
-            df_sales['Date'] = pd.to_datetime(df_sales['Year'] + "-01-01", errors='coerce') # Dummy date
-        elif report_type == 'AEON' or report_type == 'AEON DF' or report_type == 'TFP' or report_type == 'TFP DF':
-            # --- AEON STRICT DATE PARSING ---
-            # AEON CSV dates look like '25/02/2026' (DD/MM/YYYY)
+            df_sales['Date'] = pd.to_datetime(df_sales['Year'] + "-01-01", errors='coerce')
+        elif report_type in ['AEON', 'AEON DF', 'TFP', 'TFP DF']:
             df_sales['Date'] = pd.to_datetime(df_sales['Date'], format='%d/%m/%Y', errors='coerce')
-            
-            # Extract attributes only for rows where date parsing succeeded
             df_sales['Year'] = df_sales['Date'].dt.year.astype('Int64').astype(str)
             df_sales['Month'] = df_sales['Date'].dt.month_name().str[:3]
             df_sales['Week'] = df_sales['Date'].apply(lambda x: f"{x.strftime('%Y')}-W{(int(x.strftime('%U')) + 1):02d}" if pd.notnull(x) else None)
         elif report_type == 'SS':
-            # Sheng Siong: 09-12-2025 (Day-Month-Year)
             df_sales['Date'] = pd.to_datetime(df_sales['Date'], dayfirst=True, errors='coerce')
             df_sales['Year'] = df_sales['Date'].dt.year.astype(str).str.replace(r'\.0$', '', regex=True)
             df_sales['Month'] = df_sales['Date'].dt.month_name().str[:3]
             df_sales['Week'] = df_sales['Date'].dt.strftime('%Y-W%U')
         else:
-            # Cold Storage: 2025.12.31 (Year.Month.Day)
             df_sales['Date'] = pd.to_datetime(df_sales['Date'], format='%Y.%m.%d', errors='coerce')
             if df_sales['Date'].isnull().all():
                  df_sales['Date'] = pd.to_datetime(df_sales['Date'], dayfirst=True, errors='coerce')
@@ -610,55 +420,53 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         df_sales['Month'] = "ALL"
         df_sales['Week'] = "ALL"
 
-   
     if report_type == 'SS_DRY':
         df_sales['Month'] = "Annual"
         df_sales['Week'] = "Annual"
 
-    # --- C. DISTRIBUTION -
-    # d_map = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Your Reference', 'key'], 'UOM': ['Unit of Measure', 'UOM'], 'Name': ['USOFT product description', 'Description', 'Name'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date','Date'], 'Chain': ['Customer']}
-    
+    # --- C. DISTRIBUTION ---
     df_dist = find_correct_header_row(df_dist_raw, dist_cols, "Dist Sheet")
     if df_dist is None: return None
     df_dist = strict_rename(df_dist, dist_cols)
-    
 
     if 'Date' in df_dist.columns:
         df_dist['Date'] = pd.to_datetime(df_dist['Date'], errors='coerce', dayfirst=False)
 
-    # 2. Process the second Distribution Sheet (Item Ledger Entries)
     if df_dist2_raw is not None and not df_dist2_raw.empty:
-        # ⚠️ CRITICAL: Only map 'Location Name' to Store so it doesn't grab the empty 'Ship-to Name'
         dist2_cols = {
-            'NAV': ['Item No.'], 
-            'Qty': ['Quantity'], 
-            'Store': ['Location Name'], 
-            'UOM': ['Unit of Measure Code'], 
-            'Name': ['Item Description'], 
-            'Cost': ['Cost Amount (Actual)'], 
-            'Date': ['Posting Date'], 
-            'Chain': ['Source No.']
+            'NAV': ['Item No.'], 'Qty': ['Quantity'], 'Store': ['Location Name'], 
+            'UOM': ['Unit of Measure Code'], 'Name': ['Item Description'], 
+            'Cost': ['Cost Amount (Actual)'], 'Date': ['Posting Date'], 'Chain': ['Source No.']
         }
-        
         df_dist2 = find_correct_header_row(df_dist2_raw, dist2_cols, "Dist Sheet 2")
         
         if df_dist2 is not None:
             df_dist2 = strict_rename(df_dist2, dist2_cols)
+            
+            # --- NEW: FILTER DIST2 SO WE DON'T GET UNMAPPED ERRORS FOR OTHER STORES ---
+            if report_type in ['AEON', 'AEON DF']:
+                mask = df_dist2['Store'].astype(str).str.upper().str.contains('AEON|JUSCO|MAXVALU', regex=True, na=False)
+                df_dist2 = df_dist2[mask]
+            elif report_type in ['TFP', 'TFP DF']:
+                mask = df_dist2['Store'].astype(str).str.upper().str.contains('VG|BIP|BBT|BSC', regex=True, na=False)
+                df_dist2 = df_dist2[mask]
+            # --------------------------------------------------------------------------
+
             if 'Date' in df_dist2.columns:
                 df_dist2['Date'] = pd.to_datetime(df_dist2['Date'], format='%m/%d/%Y', errors='coerce')
             if 'Qty' in df_dist2.columns:
                 df_dist2['Qty'] = pd.to_numeric(df_dist2['Qty'], errors='coerce').abs()
             if 'Cost' in df_dist2.columns:
-                df_dist2['Cost'] = df_dist2['Cost'].apply(clean_currency)/df_dist2['Qty'].replace(0, 1)
+                df_dist2['Cost'] = df_dist2['Cost'].apply(clean_currency).astype(float) / df_dist2['Qty'].replace(0, 1)
+            
             df_dist = pd.concat([df_dist, df_dist2], ignore_index=True)
-    
     if 'Store' in df_dist.columns:
-        if report_type =='AEON' or report_type == 'AEON DF':
-            mask = df_dist['Store'].astype(str).str.upper().str.contains('AEON|JUSCO|MAXVALU', regex=True, na=False)
-            df_dist=df_dist[mask]
-        elif report_type == 'TFP' or report_type == 'TFP DF':
-            mask = df_dist['Store'].astype(str).str.upper().str.contains('VG|BIP|BBT|BSC', regex=True, na=False)
-            df_dist=df_dist[mask]
+        if report_type in ['AEON', 'AEON DF', 'TFP', 'TFP DF']:
+            # Aeon now uses numeric codes, so we relax the text filtering here to avoid wiping data before mapping
+            pass 
+        # elif report_type == 'TFP' or report_type == 'TFP DF':
+        #     mask = df_dist['Store'].astype(str).str.upper().str.contains('VG|BIP|BBT|BSC', regex=True, na=False)
+        #     df_dist=df_dist[mask]
         elif report_type == 'NTUC':
             mask = df_dist['Chain'].astype(str).str.upper().str.contains(r'NTUC', regex=True, na=False)
             df_dist = df_dist[mask]
@@ -672,7 +480,6 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
             mask = df_dist['Chain'].astype(str).str.upper().str.contains(r'NC', regex=True, na=False)
             df_dist = df_dist[mask]
 
-    
     if 'Chain' in df_dist.columns and 'Store' not in df_dist.columns:
          mask_chain = df_dist['Chain'].astype(str).str.upper().str.contains('HX|', na=False)
          if mask_chain.sum() > 0: df_dist = df_dist[mask_chain]
@@ -683,39 +490,37 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         for k, v in dist_names.items():
             if k not in master_name_map: master_name_map[k] = v
 
-    df_dist['Store'] = df_dist['Store'].apply(lambda x: normalize_store_name(x, report_type,loc_map))
+    # APPLY STORE MAPPINGS
+    if report_type in ["AEON", "AEON DF", "TFP", "TFP DF"]:
+        def map_nav(x):
+            val = str(x).replace('.0', '').strip()
+            if val == "" or val == "0" or val.upper() == "TRANSFER": return "UNKNOWN"
+            if val in loc_map_nav.values(): return val # Preserves names from Dist2
+            return loc_map_nav.get(val, f"UNMAPPED - {val}")
+        df_dist['Store'] = df_dist['Store'].apply(map_nav)
+
     df_dist['Date'] = pd.to_datetime(df_dist['Date'], errors='coerce')
     df_dist['Year'] = df_dist['Date'].dt.year.astype(str).str.replace(r'\.0$', '', regex=True)
     df_dist['Month'] = df_dist['Date'].dt.month_name().str[:3]
     df_dist['Week'] = df_dist['Date'].apply(lambda x: f"{x.strftime('%Y')}-W{(int(x.strftime('%U')) + 1):02d}" if pd.notnull(x) else None)
     df_dist['Qty'] = df_dist['Qty'].apply(clean_currency)
-    print("\n--- Distribution MAPPING PREVIEW ---")
-    print(df_dist[['Store', 'NAV', 'Qty','Date']].head(5))
-    print("-----------------------------\n")
     
-
-    
-        # Other systems use the Cost column
     cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0.0
     if report_type == 'SS_DRY':
         df_dist['Month'] = "Annual"
         df_dist['Week'] = "Annual"
         
-    
     if 'UOM' in df_dist.columns:
         raw_qty = pd.to_numeric(df_dist['Qty'], errors='coerce').fillna(0)
         uom_factor = df_dist['UOM'].apply(parse_uom_factor)
         df_dist['Qty'] = raw_qty * uom_factor 
         cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0
         df_dist['Val'] = df_dist['Qty'] * (cost/2)
-   
 
     # --- D. WASTAGE ---
     if report_type == "CS_DRY" or report_type == "SS_DRY" or report_type== "NTUC_DRY":
-        # No wastage file for CS_DRY
         df_waste = pd.DataFrame(columns=["NAV", "Qty", "Val", "Store", "Date", "Year", "Month", "Week", "Weight", "Chain"])
     else:
-        # w_map = {'NAV': ['NAV', 'NAV_CODE'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['Store', 'LONG_NAME'], 'Val': ['Amount', 'TOT_AMT'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
         df_waste = find_correct_header_row(df_waste_raw, waste_cols, "Waste Sheet")
         if df_waste is None: return None
         df_waste = strict_rename(df_waste, waste_cols)
@@ -730,7 +535,26 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
                 mask = df_waste['Chain'].astype(str).str.upper().str.contains('NTUC', regex=True, na=False)
                 df_waste = df_waste[mask]
         df_waste['NAV'] = df_waste['NAV'].apply(clean_id)
-        df_waste['Store'] = df_waste['Store'].apply(lambda x: normalize_store_name(x, report_type,loc_map))
+
+        # APPLY STORE MAPPINGS
+        if report_type in ["AEON", "AEON DF", "TFP", "TFP DF"]:
+            def map_waste(x):
+                # 1. Split by '-' to get all parts
+                parts = str(x).split('-')
+                
+                # 2. Find the part that is numeric and exactly 4 digits long
+                # This ignores 'HC001500' (too long) and '3' (too short)
+                val = next((p for p in parts if p.isdigit() and len(p) == 4), None)
+                
+                # 3. Fallback: If no 4-digit code found, use the original string
+                if not val:
+                    val = str(x).strip()
+                
+                if val == "" or val == "0": return "UNKNOWN"
+                if val in loc_map_nav.values(): return val 
+                return loc_map_nav.get(val, f"UNMAPPED - {val}")
+                
+            df_waste['Store'] = df_waste['Store'].apply(map_waste)
         df_waste['Date'] = pd.to_datetime(df_waste['Date'], dayfirst=True, errors='coerce')
         df_waste['Year'] = df_waste['Date'].dt.year.astype(str).replace(r'\.0$', '', regex=True)
         df_waste['Month'] = df_waste['Date'].dt.month_name().str[:3]
@@ -755,6 +579,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     }
 
     return df_sales, df_dist, df_waste, master_name_map, nav_to_article_map, [], update_info
+
 # --- 4. MAIN APP LOGIC ---
 def main_app_interface(authenticator, name, permissions):
     st.title("PPL Report")
@@ -766,7 +591,6 @@ def main_app_interface(authenticator, name, permissions):
         
         if 'urls' not in st.session_state: st.session_state['urls'] = None
 
-        # Check Permissions
         my_systems = permissions.get("systems", [])
         def can_view(sys_code): return "ALL" in my_systems or sys_code in my_systems
 
@@ -819,34 +643,9 @@ def main_app_interface(authenticator, name, permissions):
                     'h': make_url(st.secrets["sheet_ids"]["tfp_dry_history"])                
                     }
                 st.rerun()
-
-        # b5, b6 = st.sidebar.columns(2)
-        # with b5:
-        #      if can_view("SS_DRY") and st.button("SS DRY"):
-        #         st.session_state['report_type'] = "SS_DRY"
-        #         st.session_state['urls'] = {
-        #             's': make_url(st.secrets["sheet_ids"]["ss_dry_sales"]),
-        #             'db': make_url(st.secrets["sheet_ids"]["ss_dry_db"]),
-        #             'd': make_url(st.secrets["sheet_ids"]["ss_dry_dist"]),
-        #             'w': make_url(st.secrets["sheet_ids"]["ss_dry_waste"]),
-        #             'h': make_url(st.secrets["sheet_ids"]["ss_dry_history"])
-        #         }
-        #         st.rerun()
-        # with b6:
-        #    if can_view("NTUC_DRY") and st.button("NTUC DRY"):
-        #         st.session_state['report_type'] = "NTUC_DRY"
-        #         st.session_state['urls'] = {
-        #             's': make_url(st.secrets["sheet_ids"]["ntuc_dry_sales"]),
-        #             'db': make_url(st.secrets["sheet_ids"]["ntuc_dry_db"]),
-        #             'd': make_url(st.secrets["sheet_ids"]["ntuc_dry_dist"]),
-        #             'w': make_url(st.secrets["sheet_ids"]["ntuc_dry_waste"]),
-        #             'h': make_url(st.secrets["sheet_ids"]["ntuc_dry_history"])
-        #         }
-        #         st.rerun()
         
         st.markdown("---")
         app_mode = st.radio("Mode:", ["📡 Live Analysis", "🗄️ Saved Reports"])
-    
     
     if st.session_state['urls'] is None:
         st.info("👈 Please select a Report System from the sidebar to begin.")
@@ -857,28 +656,32 @@ def main_app_interface(authenticator, name, permissions):
     st.caption(f"Active System: {rpt}")
 
     if app_mode == "📡 Live Analysis":
-        with st.spinner("Fetching Live Data for {rpt}..."):
+        with st.spinner(f"Fetching Live Data for {rpt}..."):
 
             r_s = load_google_sheet(urls['s'])
             r_db = load_google_sheet(urls['db'])
             r_d = load_google_sheet(urls['d'])
             r_d2 = load_google_sheet(urls['d2']) if 'd2' in urls and urls['d2'] else None
-            # Only load wastage file if not CS_DRY
-            r_uom = load_google_sheet(urls['db'], "UOM") if rpt == "AEON" or rpt == "AEON DF" else None
+            r_uom = load_google_sheet(urls['db'], "UOM") if rpt in ["AEON", "AEON DF"] else None
+            
             if rpt in ["AEON", "AEON DF"]:
                 r_loc = load_google_sheet(urls['db'], "Loc")
             elif rpt in ["TFP", "TFP DF"]:
                 r_loc = load_google_sheet(urls['db'], "3 - DATABASE LOCATION")
             else:
                 r_loc = None
+                
             r_w = None if rpt == "CS_DRY" or rpt == "SS_DRY" else load_google_sheet(urls['w'])
 
             if r_s is not None and r_d is not None:
                 res = process_data(r_s, r_db, r_d, r_w, rpt, r_uom, r_d2, r_loc)
                 if res:
-                    # 1. Variables are defined here
                     df_s, df_d, df_w, map_name, map_art, _, update_info = res
                     
+                    if not df_s.empty: df_s = df_s[df_s['Store'] != "UNKNOWN"]
+                    if not df_d.empty: df_d = df_d[df_d['Store'] != "UNKNOWN"]
+                    if not df_w.empty: df_w = df_w[df_w['Store'] != "UNKNOWN"]
+
                     my_stores = permissions.get("stores", [])
                     if "ALL" not in my_stores:
                         if not df_s.empty: df_s = df_s[df_s['Store'].isin(my_stores)]
@@ -886,15 +689,22 @@ def main_app_interface(authenticator, name, permissions):
                         if not df_w.empty: df_w = df_w[df_w['Store'].isin(my_stores)]
                         st.warning(f"🔒 View restricted to assigned stores.")
 
-                    
                     st.caption(f"""
                     **Last Data Updates:** 🛒 Sales: **{update_info['Sales']}** | 🚚 Dist: **{update_info['Dist']}** | 📝 Ledger: **{update_info.get('Dist2', 'N/A')}** | 🗑️ Waste: **{update_info['Waste']}**
                     """)
                     
+                    # --- NEW UNMAPPED STORE ALERT ---
+                    # unmapped_stores = set()
+                    # if not df_s.empty: unmapped_stores.update(df_s[df_s['Store'].astype(str).str.startswith('UNMAPPED')]['Store'].unique())
+                    # if not df_d.empty: unmapped_stores.update(df_d[df_d['Store'].astype(str).str.startswith('UNMAPPED')]['Store'].unique())
+                    # if not df_w.empty: unmapped_stores.update(df_w[df_w['Store'].astype(str).str.startswith('UNMAPPED')]['Store'].unique())
+                    
+                    # if unmapped_stores:
+                    #     st.error(f"⚠️ **ACTION REQUIRED:** The following store codes/names were not found in your Google Sheet Database and could not be mapped:\n\n**{', '.join(unmapped_stores)}**")
+                    
                     st.sidebar.markdown("---")
                     st.sidebar.header("Filters")
 
-                    
                     all_years = sorted(list(set(df_s['Year'].dropna()) | set(df_d['Year'].dropna()) | set(df_w['Year'].dropna() if not df_w.empty else [])), reverse=True)
                     if not all_years: all_years = ["2025"] 
                     sel_year = st.sidebar.selectbox("Select Year", all_years)
@@ -904,7 +714,6 @@ def main_app_interface(authenticator, name, permissions):
                         if not df_w.empty:
                             df_w = df_w[df_w['Year'] == sel_year]
 
-                    # Filter
                     ft = st.sidebar.radio("Filter:", ["Month", "Week"])
                     if ft == "Month":
                         group_col = "Month"
@@ -921,9 +730,9 @@ def main_app_interface(authenticator, name, permissions):
                             if not df_w.empty:
                                 df_w = df_w[df_w['Month'].isin(sel)]
                     else:
-                        group_col = "Week" # Dynamic grouping variable
+                        group_col = "Week" 
                         opts = sorted(list(set(df_s['Week']) | set(df_d['Week']) | set(df_w['Week'] if not df_w.empty else [])), reverse=True)
-                        sel = st.sidebar.multiselect("Select", opts, default=opts[:4] if len(opts)>0 else opts) # Default to last 4 weeks
+                        sel = st.sidebar.multiselect("Select", opts, default=opts[:4] if len(opts)>0 else opts) 
                         if sel:
                             df_s = df_s[df_s['Week'].isin(sel)]
                             df_d = df_d[df_d['Week'].isin(sel)]
@@ -952,27 +761,18 @@ def main_app_interface(authenticator, name, permissions):
                     mask_unknown = df['Item_Name'] == "Unknown Item"
                     df.loc[mask_unknown, 'Item_Name'] = "Item " + df.loc[mask_unknown, 'NAV'].astype(str)
                     if rpt == 'AEON' or rpt == 'TFP':
-                        # For AEON Vege: REMOVE any item starting with "SN "
                         df = df[~df['Item_Name'].astype(str).str.upper().str.startswith(('SN ','SNBG '))]
-                    
                     elif rpt == 'AEON DF' or rpt == 'TFP DF':
-                        # For AEON Dry (when you add the button later): KEEP ONLY "SN " items
                         mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG '))
-                        
-                        # 2. Second, create a mask for the specific item you want to EXCLUDE
-                        # Use upper case since we are comparing against .str.upper()
                         mask_not_egg = ~df['Item_Name'].astype(str).str.upper().str.contains('SELENIUM EGG MYS PAPER TRAY', na=False)
-   
-                        # 3. Combine them using the bitwise & operator
                         df = df[mask_is_sn & mask_not_egg]
+                    
                     df['Item_Name'] = df['NAV'].map(map_name).fillna("Unknown Item")
                     mask_unknown = df['Item_Name'] == "Unknown Item"
                     df.loc[mask_unknown, 'Item_Name'] = "Item " + df.loc[mask_unknown, 'NAV'].astype(str)
                     df['Profit'] = df['Sales_Val'] - df['Dist_Val']
-                    #df['Profit_Qty'] = df['Sales_Qty'] - df ['Dist_Qty']
                     df['Balance Stock'] = df['Dist_Qty'] - df['Sales_Qty']
                     
-                    #Display whether Wastage or Balance Stock in tabs
                     is_dry = rpt in ["CS_DRY","SS_DRY", "NTUC_DRY"]
 
                     if is_dry:
@@ -982,7 +782,6 @@ def main_app_interface(authenticator, name, permissions):
                         qty_display_list =['Dist_Qty','Sales_Qty','Waste_Qty']
                         val_display_list =['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
 
-                    # Views
                     v_s_qty = df.groupby([group_col,'Store'])[qty_display_list].sum()
                     v_s_qty['STR%'] = (v_s_qty['Sales_Qty']/ v_s_qty['Dist_Qty'])*100
                     v_s_qty['STR%'] = v_s_qty['STR%'].replace([np.inf, -np.inf], 0).fillna(0).round(0)
@@ -993,8 +792,6 @@ def main_app_interface(authenticator, name, permissions):
                     v_i_val = df.groupby([group_col,'Article_Code', 'Item_Name'])[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum().sort_values('Dist_Val', ascending=False)
                     v_top10_all = df.groupby('Item_Name')[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum().reset_index()
 
-
-
                     st.subheader(f"📊 {rpt} Live Report ({sel_year}-{ft})")
                     t1, t2, t3, t4, t5, t6 = st.tabs(["📦 QTY (Store)", "💰 $ (Store)", "📦 QTY (Item)", "💰 $ (Item)", "🏆 Top 10", "📉 Bottom 10"])
 
@@ -1003,9 +800,7 @@ def main_app_interface(authenticator, name, permissions):
                             if main_df.empty:
                                 st.info("No data.")
                                 return
-                            # 1. Store Summary
                             summary = main_df.unstack(level=0, fill_value=0)
-                            # Calculate Totals
                             metrics = summary.columns.get_level_values(0).unique()
                             for m in metrics:
                                 m_cols = summary.loc[:, (m, slice(None))].columns
@@ -1018,18 +813,17 @@ def main_app_interface(authenticator, name, permissions):
                             f_dict = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in summary.columns}
                             st.dataframe(summary.style.format(f_dict), height=400, use_container_width=True)
                             st.divider()
-                            # 2. FAST DRILL-DOWN (Selectbox instead of Loop)
                             st.markdown("### 🔍 Select Store to View Details")
                             store_options = [f"{s}" for s in summary.index]
 
                             for store in summary.index:
                                 val = summary.loc[store, (sort_col, 'TOTAL')]
                                 store_options.append(f"{store} | Total {sort_col}: {val:,.2f}")
-                            sel_store_str = st.selectbox(f"Select Store ({sort_col})", options=store_options, key=f"sel_{sort_col}")
+                            
+                            sel_store_str = st.selectbox(f"Select Store ({sort_col})", options=store_options, key=f"sel_{id(tab)}_{sort_col}")
                             if sel_store_str:
                                 selected_store = sel_store_str.split(" | ")[0]
                                 store_mask = df['Store'] == selected_store
-                                # Check if time_col in df columns for groupby
                                 if time_col not in df.columns:
                                     st.warning(f"Cannot drill down: '{time_col}' not found in data columns.")
                                     return
@@ -1046,30 +840,15 @@ def main_app_interface(authenticator, name, permissions):
                                 f_det = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in detail_view.columns}
                                 st.dataframe(detail_view.style.format(f_det), width='stretch')
                     
-                    display_drilldown(
-                        t1, 
-                        v_s_qty, 
-                        qty_display_list, # Columns to show in detail
-                        'Sales_Qty', # Column to sort by
-                        "{:,.2f}",group_col
-                    ) 
-
-                    # Tab 2: Store Val (Drilldown shows Dist, Sales, Waste)
-                    display_drilldown(
-                        t2, 
-                        v_s_val, 
-                        val_display_list, # Columns to show in detail
-                        'Sales_Val', # Column to sort by
-                        "{:,.2f}",group_col
-                    )
+                    display_drilldown(t1, v_s_qty, qty_display_list, 'Sales_Qty', "{:,.2f}",group_col) 
+                    display_drilldown(t2, v_s_val, val_display_list, 'Sales_Val', "{:,.2f}",group_col)
+                    
                     def display_item_drilldown(tab, detail_cols, sort_col, fmt, time_col):
                         with tab:
-                            
                             summary = df.groupby(['Item_Name', time_col])[detail_cols].sum().unstack(level=1, fill_value=0)
                             if summary.empty:
                                 st.info("No data.")
                                 return
-                            # Calculate Totals
                             metrics = summary.columns.get_level_values(0).unique()
                             for m in metrics:
                                 m_cols = summary.loc[:, (m, slice(None))].columns
@@ -1088,14 +867,13 @@ def main_app_interface(authenticator, name, permissions):
                             f_dict = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in summary.columns}
                             st.dataframe(summary.style.format(f_dict), height=400, use_container_width=True)
                             st.divider()
-                            # 2. FAST DRILL-DOWN
                             st.markdown("### 🔍 Select Item to View Stores")
                             limit_list = summary.index[:2000]
                             item_options = []
                             for item in limit_list:
                                 val = summary.loc[item, (sort_col, 'TOTAL')]
                                 item_options.append(f"{item} | Total {sort_col}: {val:,.2f}")
-                            sel_item_str = st.selectbox(f"Select Item ({sort_col})", options=item_options, key=f"sel_item_{sort_col}")
+                            sel_item_str = st.selectbox(f"Select Item ({sort_col})", options=item_options, key=f"sel_item_{id(tab)}_{sort_col}")
                             if sel_item_str:
                                 selected_item = sel_item_str.split(" | ")[0]
                                 item_mask = df['Item_Name'] == selected_item
@@ -1115,67 +893,31 @@ def main_app_interface(authenticator, name, permissions):
                                 f_det = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in item_view.columns}
                                 st.dataframe(item_view.sort_index(axis=1).style.format(f_det), width='stretch')
 
-                    # Tab 3 & 4: Item Views (Keep as simple Pivot)
-                    def display_simple_pivot(tab, df_in, fmt,time_col):
-                        with tab:
-                            try:
-                                p = df_in.unstack(level=time_col, fill_value=0)
-                                p['Total'] = p.sum(axis=1)
-                                p = p.sort_values('Total', ascending=False).drop(columns=['Total'])
-                                st.dataframe(p.style.format(fmt))
-
-                                st.markdown("---")
-                                st.markdown("### 🔍 Store Details (Click to Expand)")
-                                
-                            except: st.info("No data")
-
-                    display_item_drilldown(
-                        t3, 
-                        qty_display_list, 
-                        'Sales_Qty', "{:,.2f}",group_col
-                    )
-
-                    # Tab 4: Item Val (Item -> Stores) - NEW LOGIC
-                    display_item_drilldown(
-                        t4,
-                        val_display_list, 
-                        'Sales_Val', "{:,.2f}",group_col
-                    )
+                    display_item_drilldown(t3, qty_display_list, 'Sales_Qty', "{:,.2f}",group_col)
+                    display_item_drilldown(t4, val_display_list, 'Sales_Val', "{:,.2f}",group_col)
 
                     with t5:
-                        if not v_top10_all.empty:
-                            valid_items_df = v_top10_all[(~v_top10_all['Item_Name'].str.startswith('Item ')) & (v_top10_all['Item_Name'] != 'Unknown Item')]
-                            top10_df = valid_items_df.nlargest(10, 'Sales_Val')
-                            
-                            # Create a display copy and add the Grand Total row
-                            disp_top10 = top10_df.copy()
-                            disp_top10.loc['Grand Total'] = disp_top10[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum()
-                            disp_top10.at['Grand Total', 'Item_Name'] = 'GRAND TOTAL'
-                            
-                            st.dataframe(disp_top10.style.format({c: "{:,.2f}" for c in ['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']}), hide_index=True, use_container_width=True)
-                            st.bar_chart(top10_df.set_index('Item_Name')['Sales_Val']) # Use original df for chart
+                        st.subheader("🏆 TOP 10 Items by Profit")
+                        if not df.empty:
+                            # Sorts by Profit, Top 10 (Highest to Lowest)
+                            top10_table = get_rank_table(df, group_col, sort_by='Profit', top=True, n=10)
+                            st.dataframe(top10_table.style.format("{:,.2f}"), use_container_width=True)
                         else:
-                            st.info("No Sales Data available for Top 10.")
-                    
+                            st.info("No data available.")
+
                     with t6:
-                        if not v_top10_all.empty:
-                            bottom10_df = valid_items_df.nsmallest(10, 'Sales_Val')
-                            
-                            # Create a display copy and add the Grand Total row
-                            disp_bot10 = bottom10_df.copy()
-                            disp_bot10.loc['Grand Total'] = disp_bot10[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum()
-                            disp_bot10.at['Grand Total', 'Item_Name'] = 'GRAND TOTAL'
-                            
-                            st.dataframe(disp_bot10.style.format({c: "{:,.2f}" for c in ['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']}), hide_index=True, use_container_width=True)
-                            st.bar_chart(bottom10_df.set_index('Item_Name')['Sales_Val']) # Use original df for chart
+                        st.subheader("📉 BOTTOM 10 Items by Profit")
+                        if not df.empty:
+                            # Sorts by Profit, Bottom 10 (Lowest to Highest)
+                            bot10_table = get_rank_table(df, group_col, sort_by='Profit', top=False, n=10)
+                            st.dataframe(bot10_table.style.format("{:,.2f}"), use_container_width=True)
                         else:
-                            st.info("No valid sales data for Bottom 10.")
+                            st.info("No data available.")
+                    
                     st.divider()
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         workbook = writer.book
-                        
-                        # --- Custom Excel Formats ---
                         title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'color': '#1F497D'})
                         cell_fmt = workbook.add_format({'border': 1, 'valign': 'vcenter'})
                         num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'valign': 'vcenter'})
@@ -1184,14 +926,12 @@ def main_app_interface(authenticator, name, permissions):
                         total_int_fmt = workbook.add_format({'num_format': '#,##0', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
                         total_num_fmt = workbook.add_format({'num_format': '#,##0.00', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
                         
-                        # --- Header Color Formats ---
                         header_base = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': 'black'})
-                        fmt_dist = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#B4C6E7', 'font_color': 'black'}) # Light Blue
-                        fmt_sales = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F8CBAD', 'font_color': 'black'}) # Light Orange
-                        fmt_waste = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6E0B4', 'font_color': 'black'}) # Light Green
-                        fmt_calc = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFE699', 'font_color': 'black'}) # Light Yellow
+                        fmt_dist = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#B4C6E7', 'font_color': 'black'}) 
+                        fmt_sales = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F8CBAD', 'font_color': 'black'}) 
+                        fmt_waste = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6E0B4', 'font_color': 'black'}) 
+                        fmt_calc = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFE699', 'font_color': 'black'}) 
                         
-                        # Helper to pick the right color
                         def get_fmt(metric_name):
                             m = str(metric_name).upper()
                             if 'DIST' in m: return fmt_dist
@@ -1202,18 +942,11 @@ def main_app_interface(authenticator, name, permissions):
 
                         def format_pivot(df, sheet_name, title, col_w=20):
                             if df.empty: return
-                            
-                            # 1. Calculate Grand Total
                             totals = df.sum(numeric_only=True)
-                            
-                            # 2. Write Data to Excel
                             df.to_excel(writer, sheet_name=sheet_name, startrow=2)
                             ws = writer.sheets[sheet_name]
-                            
-                            # 3. Add Title
                             ws.write(0, 0, title, title_fmt)
                             
-                            # 4. Apply column widths
                             idx_cols = df.index.nlevels
                             num_cols = len(df.columns)
                             hdr_rows = df.columns.nlevels
@@ -1226,27 +959,22 @@ def main_app_interface(authenticator, name, permissions):
                                 c_fmt = int_fmt if 'STR%' in str(metric).upper() else num_fmt
                                 ws.set_column(excel_c, excel_c, 14, c_fmt)
                             
-                            # 5. Paint Dynamic Colored Headers
-                            # Format the Index headers (e.g. Store, Item Name)
                             for i, idx_name in enumerate(df.index.names):
                                 name = str(idx_name) if idx_name else ""
                                 for r in range(2, 2 + hdr_rows):
                                     val = name if r == 2 + hdr_rows - 1 else ""
                                     ws.write(r, i, val, header_base)
 
-                            # Format the Data headers based on the Metric name
                             for c_idx, col_tuple in enumerate(df.columns):
                                 excel_c = idx_cols + c_idx
                                 metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
                                 c_fmt = get_fmt(metric)
-                                
                                 if isinstance(col_tuple, tuple):
                                     for r_idx, val in enumerate(col_tuple):
                                         ws.write(2 + r_idx, excel_c, str(val), c_fmt)
                                 else:
                                     ws.write(2, excel_c, str(col_tuple), c_fmt)
                                 
-                            # 6. Format Grand Total Row
                             ws.set_row(total_row, 20, total_fmt)
                             if idx_cols > 1:
                                 ws.merge_range(total_row, 0, total_row, idx_cols - 1, "GRAND TOTAL", total_fmt)
@@ -1258,7 +986,6 @@ def main_app_interface(authenticator, name, permissions):
                                 metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
                                 time_key = col_tuple[1] if isinstance(col_tuple, tuple) else None
                                 
-                                # Check if this column is an STR% column
                                 if 'STR%' in str(metric).upper():
                                     if time_key is not None:
                                         s_tot = totals.get(('Sales_Qty', time_key), 0)
@@ -1266,20 +993,14 @@ def main_app_interface(authenticator, name, permissions):
                                     else:
                                         s_tot = totals.get('Sales_Qty', 0)
                                         d_tot = totals.get('Dist_Qty', 0)
-                                    
-                                    # Calculate true formula percentage
                                     val = (s_tot / d_tot * 100) if d_tot > 0 else 0.0
-                                    val = round(val, 0) # Drop all decimals completely
-                                    t_fmt = total_int_fmt # Force no-decimal integer layout
+                                    val = round(val, 0)
+                                    t_fmt = total_int_fmt 
                                 else:
-                                    # Standard metrics use standard sum totals
                                     val = totals.iloc[col - idx_cols]
-                                    # Keep decimals for values, drop them if it's an item count quantity
-                                    t_fmt =total_num_fmt
-                                
+                                    t_fmt = total_num_fmt
                                 ws.write_number(total_row, col, val, t_fmt)
 
-                        # --- 1. Store Qty ---
                         qty_pivot = v_s_qty.unstack(level=0).fillna(0)
                         metrics = qty_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
@@ -1290,7 +1011,6 @@ def main_app_interface(authenticator, name, permissions):
                             qty_pivot = qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
                         format_pivot(qty_pivot, 'Store Qty', "📊 STORE QUANTITY ANALYSIS", col_w=35)
 
-                        # --- 2. Store Value ---
                         val_pivot = v_s_val.unstack(level=0).fillna(0)
                         metrics = val_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
@@ -1301,7 +1021,6 @@ def main_app_interface(authenticator, name, permissions):
                             val_pivot = val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
                         format_pivot(val_pivot, 'Store $', "💰 STORE VALUE ANALYSIS", col_w=35)
 
-                        # --- 3. Item Qty Summary ---
                         item_qty_pivot = v_i_qty.unstack(level=0).fillna(0)
                         metrics = item_qty_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
@@ -1312,7 +1031,6 @@ def main_app_interface(authenticator, name, permissions):
                             item_qty_pivot = item_qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
                         format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY", col_w=30)
 
-                        # --- 4. Item Value Summary ---
                         item_val_pivot = v_i_val.unstack(level=0).fillna(0)
                         metrics = item_val_pivot.columns.get_level_values(0).unique()
                         for m in metrics:
@@ -1323,63 +1041,42 @@ def main_app_interface(authenticator, name, permissions):
                             item_val_pivot = item_val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
                         format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY", col_w=30)
 
-                        # --- 5. Combined Top & Bottom 10 ---
                         if not v_top10_all.empty:
                             ws5 = workbook.add_worksheet('TOP&BTM 10')
-                            
                             valid_items_df = v_top10_all[(~v_top10_all['Item_Name'].str.startswith('Item ')) & (v_top10_all['Item_Name'] != 'Unknown Item')]
-                            
                             top10_df = valid_items_df.nlargest(10, 'Sales_Val')
                             top10_df.columns = ['Top 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
-                            
                             bottom10_df = valid_items_df.nsmallest(10, 'Sales_Val')
                             bottom10_df.columns = ['Bottom 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
                             
                             ws5.write(0, 0, "🏆 TOP 10 ITEMS BY SALES", title_fmt)
                             top10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=2, index=False)
-                            
                             ws5.write(15, 0, "📉 BOTTOM 10 ITEMS BY SALES", title_fmt)
                             bottom10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=17, index=False)
                             
-                            # Format Column widths
                             ws5.set_column('A:A', 40, cell_fmt)
                             ws5.set_column('B:E', 15, num_fmt)
                             
-                            # Loop through both tables to apply Colors AND Grand Totals
-                            tables = [
-                                (2, 'Top 10 Items', top10_df), 
-                                (17, 'Bottom 10 Items', bottom10_df)
-                            ]
-                            
+                            tables = [(2, 'Top 10 Items', top10_df), (17, 'Bottom 10 Items', bottom10_df)]
                             for start_r, title, df_subset in tables:
-                                # Apply Color-Coded Headers
                                 ws5.write(start_r, 0, title, header_base)
-                                ws5.write(start_r, 1, 'Dist_Val', fmt_dist)    # Light Blue
-                                ws5.write(start_r, 2, 'Sales_Val', fmt_sales)  # Light Orange
-                                ws5.write(start_r, 3, 'Waste_Val', fmt_waste)  # Light Green
-                                ws5.write(start_r, 4, 'Profit', fmt_calc)      # Light Yellow
+                                ws5.write(start_r, 1, 'Dist_Val', fmt_dist)
+                                ws5.write(start_r, 2, 'Sales_Val', fmt_sales)
+                                ws5.write(start_r, 3, 'Waste_Val', fmt_waste)
+                                ws5.write(start_r, 4, 'Profit', fmt_calc)
                                 
-                                # Add Grand Total Row dynamically at the bottom of the table
                                 total_row = start_r + len(df_subset) + 1
                                 ws5.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
                                 ws5.write_number(total_row, 1, df_subset['Dist_Val'].sum(), total_num_fmt)
                                 ws5.write_number(total_row, 2, df_subset['Sales_Val'].sum(), total_num_fmt)
                                 ws5.write_number(total_row, 3, df_subset['Waste_Val'].sum(), total_num_fmt)
                                 ws5.write_number(total_row, 4, df_subset['Profit'].sum(), total_num_fmt)
-                        # --- 6. Master Data ---
                         df.to_excel(writer, sheet_name='Master Data Raw', index=False)
 
                     excel_data = output.getvalue()
-                    
                     col_d1, col_d2 = st.columns([2,1])
                     with col_d1:
-                         st.download_button(
-                            label="📥 Download Full Excel Report",
-                            data=excel_data,
-                            file_name=f"Report_{sel_year}_{rpt}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            help="Downloads a multi-tab Excel file with all summaries."
-                        )
+                         st.download_button(label="📥 Download Full Excel Report", data=excel_data, file_name=f"Report_{sel_year}_{rpt}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
                     c1, c2 = st.columns([3, 1])
                     rep_name = c1.text_input("Report Name (e.g. Week48)", "")
@@ -1400,18 +1097,13 @@ def main_app_interface(authenticator, name, permissions):
             reps = get_saved_reports(urls['h'])
             if reps:
                 sel = st.selectbox("Select Report:", reps)
-                
                 if sel:
-                    # 1. LOAD DATA FIRST (Inside Spinner)
                     loaded_data = {}
                     sheet_tabs = ["StoreQty", "StoreVal", "ItemQty", "ItemVal", "Top10", "Master"]
-                    
                     with st.spinner("Downloading Report Data..."):
                         try:
                             client = get_gspread_client()
                             sh = client.open_by_url(urls['h'])
-                            
-                            # Pre-fetch all necessary tabs to avoid UI lag later
                             for tab_name in sheet_tabs:
                                 try:
                                     full_data = sh.worksheet(f"Rep_{sel}_{tab_name}").get_all_values()
@@ -1419,50 +1111,24 @@ def main_app_interface(authenticator, name, permissions):
                                         header = full_data[0]
                                         rows = full_data[1:]
                                         loaded_data[tab_name] = pd.DataFrame(rows, columns=header)
-                                    else:
-                                        loaded_data[tab_name] = pd.DataFrame()
-                                except:
-                                    loaded_data[tab_name] = pd.DataFrame()
-                                    
+                                    else: loaded_data[tab_name] = pd.DataFrame()
+                                except: loaded_data[tab_name] = pd.DataFrame()
                         except Exception as e:
                             st.error(f"Connection Error: {e}")
                             st.stop()
 
-                    # 2. RENDER UI (Outside Spinner - Prevents White Screen Error)
                     if loaded_data:
-                        # Create Tabs
-                        t1, t2, t3, t4, t5, t6 = st.tabs([
-                            "📦 Store Qty", 
-                            "💰 Store Val", 
-                            "📦 Item Qty", 
-                            "💰 Item Val", 
-                            "🏆 Top 10", 
-                            "📝 Master Data"
-                        ])
-
-                        # Render Dataframes safely
-                        with t1: 
-                            st.dataframe(loaded_data.get("StoreQty", pd.DataFrame()), use_container_width=True)
-                        
-                        with t2: 
-                            st.dataframe(loaded_data.get("StoreVal", pd.DataFrame()), use_container_width=True)
-                        
-                        with t3: 
-                            st.dataframe(loaded_data.get("ItemQty", pd.DataFrame()), use_container_width=True)
-                        
-                        with t4: 
-                            st.dataframe(loaded_data.get("ItemVal", pd.DataFrame()), use_container_width=True)
-                        
+                        t1, t2, t3, t4, t5, t6 = st.tabs(["📦 Store Qty", "💰 Store Val", "📦 Item Qty", "💰 Item Val", "🏆 Top 10", "📝 Master Data"])
+                        with t1: st.dataframe(loaded_data.get("StoreQty", pd.DataFrame()), use_container_width=True)
+                        with t2: st.dataframe(loaded_data.get("StoreVal", pd.DataFrame()), use_container_width=True)
+                        with t3: st.dataframe(loaded_data.get("ItemQty", pd.DataFrame()), use_container_width=True)
+                        with t4: st.dataframe(loaded_data.get("ItemVal", pd.DataFrame()), use_container_width=True)
                         with t5: 
                             df_top = loaded_data.get("Top10", pd.DataFrame())
                             st.dataframe(df_top, use_container_width=True)
-                            # Try to render chart if data exists
                             if not df_top.empty and 'Total Sales' in df_top.columns:
                                 try:
-                                    # Ensure numeric for chart
                                     df_top['Total Sales'] = pd.to_numeric(df_top['Total Sales'], errors='coerce')
                                     st.bar_chart(df_top.set_index(df_top.columns[0])['Total Sales'])
                                 except: pass
-
-                        with t6: 
-                            st.dataframe(loaded_data.get("Master", pd.DataFrame()), use_container_width=True)
+                        with t6: st.dataframe(loaded_data.get("Master", pd.DataFrame()), use_container_width=True)
