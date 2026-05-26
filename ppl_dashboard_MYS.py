@@ -1044,14 +1044,19 @@ def main_app_interface(authenticator, name, permissions):
                         if not v_top10_all.empty:
                             ws5 = workbook.add_worksheet('TOP&BTM 10')
                             valid_items_df = v_top10_all[(~v_top10_all['Item_Name'].str.startswith('Item ')) & (v_top10_all['Item_Name'] != 'Unknown Item')]
-                            top10_df = valid_items_df.nlargest(10, 'Sales_Val')
+                            
+                            # 1. Get Top 10 by Profit (Highest Profit first)
+                            top10_df = valid_items_df.nlargest(10, 'Profit')
                             top10_df.columns = ['Top 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
-                            bottom10_df = valid_items_df.nsmallest(10, 'Sales_Val')
+                            
+                            # 2. Get Bottom 10 by Profit (Lowest Profit first)
+                            bottom10_df = valid_items_df.nsmallest(10, 'Profit').sort_values('Profit', ascending=True)
                             bottom10_df.columns = ['Bottom 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
                             
-                            ws5.write(0, 0, "🏆 TOP 10 ITEMS BY SALES", title_fmt)
+                            ws5.write(0, 0, "🏆 TOP 10 ITEMS BY PROFIT", title_fmt)
                             top10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=2, index=False)
-                            ws5.write(15, 0, "📉 BOTTOM 10 ITEMS BY SALES", title_fmt)
+                            
+                            ws5.write(15, 0, "📉 BOTTOM 10 ITEMS BY PROFIT", title_fmt)
                             bottom10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=17, index=False)
                             
                             ws5.set_column('A:A', 40, cell_fmt)
@@ -1071,7 +1076,8 @@ def main_app_interface(authenticator, name, permissions):
                                 ws5.write_number(total_row, 2, df_subset['Sales_Val'].sum(), total_num_fmt)
                                 ws5.write_number(total_row, 3, df_subset['Waste_Val'].sum(), total_num_fmt)
                                 ws5.write_number(total_row, 4, df_subset['Profit'].sum(), total_num_fmt)
-                        df.to_excel(writer, sheet_name='Master Data Raw', index=False)
+                            
+                            df.to_excel(writer, sheet_name='Master Data Raw', index=False)
 
                     excel_data = output.getvalue()
                     col_d1, col_d2 = st.columns([2,1])
