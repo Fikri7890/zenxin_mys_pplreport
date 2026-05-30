@@ -379,7 +379,13 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         df_sales['Store'] = df_sales['Store'].apply(map_tfp_sales)
 
     df_sales['Qty'] = df_sales['Qty'].apply(clean_currency)
-    df_sales['Val'] = df_sales['Val'].apply(clean_currency)
+    if report_type == 'AEON':
+        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.23
+    elif report_type =='AEON DF':
+        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.2
+    elif report_type in ['TFP','TFP DF']:
+        df_sales['Val'] =df_sales['Val'].apply(clean_currency)*0.25
+    # df_sales['Val'] = df_sales['Val'].apply(clean_currency)
     
     if report_type in ['AEON', 'AEON DF', 'TFP', 'TFP DF']:
         df_sales['UOM_Str'] = df_sales['NAV'].map(uom_mapping).fillna('KG')
@@ -820,7 +826,8 @@ def main_app_interface(authenticator, name, permissions):
                                 val = summary.loc[store, (sort_col, 'TOTAL')]
                                 store_options.append(f"{store} | Total {sort_col}: {val:,.2f}")
                             
-                            sel_store_str = st.selectbox(f"Select Store ({sort_col})", options=store_options, key=f"sel_{id(tab)}_{sort_col}")
+                        sel_store_str = st.selectbox(f"Select Store ({sort_col})", options=store_options, key=f"sel_selectbox_{tab}_{sort_col}")
+                        if sel_store_str:
                             if sel_store_str:
                                 selected_store = sel_store_str.split(" | ")[0]
                                 store_mask = df['Store'] == selected_store
