@@ -380,11 +380,11 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
 
     df_sales['Qty'] = df_sales['Qty'].apply(clean_currency)
     if report_type == 'AEON':
-        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.23
+        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.77
     elif report_type =='AEON DF':
-        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.2
+        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.8
     elif report_type in ['TFP','TFP DF']:
-        df_sales['Val'] =df_sales['Val'].apply(clean_currency)*0.25
+        df_sales['Val'] =df_sales['Val'].apply(clean_currency)*0.75
     # df_sales['Val'] = df_sales['Val'].apply(clean_currency)
     
     if report_type in ['AEON', 'AEON DF', 'TFP', 'TFP DF']:
