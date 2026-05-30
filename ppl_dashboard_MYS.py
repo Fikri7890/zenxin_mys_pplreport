@@ -17,7 +17,7 @@ def get_gspread_client():
 def make_url(sheet_id):
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
 
-# @st.cache_data(ttl=600)
+
 def load_google_sheet(url, sheet_name=0):
     try:
         client = get_gspread_client()
@@ -437,12 +437,14 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
 
     if 'Date' in df_dist.columns:
         df_dist['Date'] = pd.to_datetime(df_dist['Date'], errors='coerce', dayfirst=False)
+        # SAVE THIS EXCLUSIVELY FOR THE SIDEBAR CAPTION LOGIC Later:
+        df_dist_raw_date_max = df_dist['Date'].max().strftime('%d %b %Y') if not df_dist['Date'].dropna().empty else "N/A"
 
     if df_dist2_raw is not None and not df_dist2_raw.empty:
         dist2_cols = {
             'NAV': ['Item No.'], 'Qty': ['Quantity'], 'Store': ['Location Name'], 
             'UOM': ['Unit of Measure Code'], 'Name': ['Item Description'], 
-            'Cost': ['Cost Amount (Actual)'], 'Date': ['Posting Date'], 'Chain': ['Source No.']
+            'Cost': ['Cost Amount (Actual)'], 'Date': ['Posting Date']
         }
         df_dist2 = find_correct_header_row(df_dist2_raw, dist2_cols, "Dist Sheet 2")
         
@@ -572,14 +574,23 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
 
     def get_max_date(dframe):
         try:
-            if not dframe.empty and 'Date' in dframe.columns:
+            if dframe is not None and not dframe.empty and 'Date' in dframe.columns:
                 return dframe['Date'].max().strftime('%d %b %Y')
         except: pass
         return "N/A"
 
+    # Separate tracking logic before returning
+    # We calculate 'Dist' tracking by filtering out rows that came from df_dist2
+    # Standard distribution rows won't match df_dist2's unique 'Item Description' or structural columns if handled cleanly,
+    # but a simpler way is to calculate standard distribution max date directly from the df_dist rows before concat or by checking rows where 'Store' wasn't modified by map_nav's ledger rules.
+    
+    # Let's find the true max date of standard distribution rows safely:
+    standard_dist_rows = df_dist[~df_dist.index.isin(df_dist2.index)] if not df_dist2.empty else df_dist
+
     update_info = {
         "Sales": get_max_date(df_sales),
-        "Dist": get_max_date(df_dist),
+        # If df_dist2 added rows, extract max date from the original distribution dates safely
+        "Dist": df_dist_raw_date_max if 'df_dist_raw_date_max' in locals() else get_max_date(standard_dist_rows),
         "Dist2": get_max_date(df_dist2) if not df_dist2.empty else "N/A",
         "Waste": get_max_date(df_waste)
     }
