@@ -511,7 +511,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     df_dist['Year'] = df_dist['Date'].dt.year.astype(str).str.replace(r'\.0$', '', regex=True)
     df_dist['Month'] = df_dist['Date'].dt.month_name().str[:3]
     df_dist['Week'] = df_dist['Date'].apply(lambda x: f"{x.strftime('%Y')}-W{(int(x.strftime('%U')) + 1):02d}" if pd.notnull(x) else None)
-    df_dist['Qty_'] = df_dist['Qty'].apply(clean_currency)
+    df_dist['Qty'] = df_dist['Qty'].apply(clean_currency)
     df_dist['Qty_1'] = df_dist['Qty'].apply(clean_currency)
     
     cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0.0
