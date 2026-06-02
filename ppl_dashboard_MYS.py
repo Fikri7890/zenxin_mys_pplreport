@@ -933,8 +933,33 @@ def main_app_interface(authenticator, name, permissions):
                             st.info("No data available.")
                     
                     st.divider()
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    
+                    # --- DUAL FILE DATA SEGREGATION ---
+                    # Separate clean data from unmapped data
+                    is_unmapped_store = df['Store'].astype(str).str.startswith('UNMAPPED')
+                    is_unmapped_item = df['Article_Code'].astype(str).str.startswith('Unmapped')
+                    
+                    df_clean = df[~(is_unmapped_store | is_unmapped_item)]
+                    df_unmapped_raw = df[is_unmapped_store | is_unmapped_item]
+
+                    # Regenerate summaries exclusively for the Clean Excel Report
+                    v_s_qty_clean = df_clean.groupby([group_col, 'Store'])[qty_display_list].sum()
+                    v_s_qty_clean['STR%'] = (v_s_qty_clean['Sales_Qty'] / v_s_qty_clean['Dist_Qty'].replace(0, 1)) * 100
+                    v_s_qty_clean['STR%'] = v_s_qty_clean['STR%'].replace([np.inf, -np.inf], 0).fillna(0).round(0)
+                    
+                    v_s_val_clean = df_clean.groupby([group_col, 'Store'])[val_display_list].sum()
+                    
+                    v_i_qty_clean = df_clean.groupby([group_col, 'Article_Code', 'Item_Name'])[qty_display_list].sum()
+                    v_i_qty_clean['STR%'] = (v_i_qty_clean['Sales_Qty'] / v_i_qty_clean['Dist_Qty'].replace(0, 1)) * 100
+                    v_i_qty_clean['STR%'] = v_i_qty_clean['STR%'].replace([np.inf, -np.inf], 0).fillna(0).round(0)
+                    
+                    v_i_val_clean = df_clean.groupby([group_col, 'Article_Code', 'Item_Name'])[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum()
+
+                    # ----------------------------------------------------
+                    # FILE 1: BUILD CLEAN FULL REPORT
+                    # ----------------------------------------------------
+                    output_clean = io.BytesIO()
+                    with pd.ExcelWriter(output_clean, engine='xlsxwriter') as writer:
                         workbook = writer.book
                         title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'color': '#1F497D'})
                         cell_fmt = workbook.add_format({'border': 1, 'valign': 'vcenter'})
@@ -943,13 +968,12 @@ def main_app_interface(authenticator, name, permissions):
                         int_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'valign': 'vcenter'})
                         total_int_fmt = workbook.add_format({'num_format': '#,##0', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
                         total_num_fmt = workbook.add_format({'num_format': '#,##0.00', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
-                        
                         header_base = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': 'black'})
                         fmt_dist = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#B4C6E7', 'font_color': 'black'}) 
                         fmt_sales = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F8CBAD', 'font_color': 'black'}) 
                         fmt_waste = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6E0B4', 'font_color': 'black'}) 
                         fmt_calc = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFE699', 'font_color': 'black'}) 
-                        
+
                         def get_fmt(metric_name):
                             m = str(metric_name).upper()
                             if 'DIST' in m: return fmt_dist
@@ -958,32 +982,32 @@ def main_app_interface(authenticator, name, permissions):
                             if 'STR' in m or 'PROFIT' in m or 'BALANCE' in m: return fmt_calc
                             return header_base
 
-                        def format_pivot(df, sheet_name, title, col_w=20):
-                            if df.empty: return
-                            totals = df.sum(numeric_only=True)
-                            df.to_excel(writer, sheet_name=sheet_name, startrow=2)
+                        def format_pivot(df_to_write, sheet_name, title, col_w=20):
+                            if df_to_write.empty: return
+                            totals = df_to_write.sum(numeric_only=True)
+                            df_to_write.to_excel(writer, sheet_name=sheet_name, startrow=2)
                             ws = writer.sheets[sheet_name]
                             ws.write(0, 0, title, title_fmt)
                             
-                            idx_cols = df.index.nlevels
-                            num_cols = len(df.columns)
-                            hdr_rows = df.columns.nlevels
-                            total_row = 2 + hdr_rows + len(df.index) 
+                            idx_cols = df_to_write.index.nlevels
+                            num_cols = len(df_to_write.columns)
+                            hdr_rows = df_to_write.columns.nlevels
+                            total_row = 2 + hdr_rows + len(df_to_write.index) 
                             
                             ws.set_column(0, idx_cols - 1, col_w, cell_fmt)
-                            for c_idx, col_tuple in enumerate(df.columns):
+                            for c_idx, col_tuple in enumerate(df_to_write.columns):
                                 excel_c = idx_cols + c_idx
                                 metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
                                 c_fmt = int_fmt if 'STR%' in str(metric).upper() else num_fmt
                                 ws.set_column(excel_c, excel_c, 14, c_fmt)
                             
-                            for i, idx_name in enumerate(df.index.names):
+                            for i, idx_name in enumerate(df_to_write.index.names):
                                 name = str(idx_name) if idx_name else ""
                                 for r in range(2, 2 + hdr_rows):
                                     val = name if r == 2 + hdr_rows - 1 else ""
                                     ws.write(r, i, val, header_base)
 
-                            for c_idx, col_tuple in enumerate(df.columns):
+                            for c_idx, col_tuple in enumerate(df_to_write.columns):
                                 excel_c = idx_cols + c_idx
                                 metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
                                 c_fmt = get_fmt(metric)
@@ -1000,7 +1024,7 @@ def main_app_interface(authenticator, name, permissions):
                                 ws.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
                                 
                             for col in range(idx_cols, idx_cols + num_cols):
-                                col_tuple = df.columns[col - idx_cols]
+                                col_tuple = df_to_write.columns[col - idx_cols]
                                 metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
                                 time_key = col_tuple[1] if isinstance(col_tuple, tuple) else None
                                 
@@ -1019,45 +1043,26 @@ def main_app_interface(authenticator, name, permissions):
                                     t_fmt = total_num_fmt
                                 ws.write_number(total_row, col, val, t_fmt)
 
-                        qty_pivot = v_s_qty.unstack(level=0).fillna(0)
-                        metrics = qty_pivot.columns.get_level_values(0).unique()
-                        for m in metrics:
-                            m_cols = qty_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols: qty_pivot[c] = pd.to_numeric(qty_pivot[c], errors='coerce').fillna(0)
-                            qty_pivot[(m, 'TOTAL')] = qty_pivot[m_cols].sum(axis=1)
+                        # Write cleaned sheets
+                        qty_pivot = v_s_qty_clean.unstack(level=0).fillna(0)
                         if ('Sales_Qty', 'TOTAL') in qty_pivot.columns:
                             qty_pivot = qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
-                        format_pivot(qty_pivot, 'Store Qty', "📊 STORE QUANTITY ANALYSIS", col_w=35)
+                        format_pivot(qty_pivot, 'Store Qty', "📊 STORE QUANTITY ANALYSIS (CLEAN)", col_w=35)
 
-                        val_pivot = v_s_val.unstack(level=0).fillna(0)
-                        metrics = val_pivot.columns.get_level_values(0).unique()
-                        for m in metrics:
-                            m_cols = val_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols: val_pivot[c] = pd.to_numeric(val_pivot[c], errors='coerce').fillna(0)
-                            val_pivot[(m, 'TOTAL')] = val_pivot[m_cols].sum(axis=1)
+                        val_pivot = v_s_val_clean.unstack(level=0).fillna(0)
                         if ('Sales_Val', 'TOTAL') in val_pivot.columns:
                             val_pivot = val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
-                        format_pivot(val_pivot, 'Store $', "💰 STORE VALUE ANALYSIS", col_w=35)
+                        format_pivot(val_pivot, 'Store $', "💰 STORE VALUE ANALYSIS (CLEAN)", col_w=35)
 
-                        item_qty_pivot = v_i_qty.unstack(level=0).fillna(0)
-                        metrics = item_qty_pivot.columns.get_level_values(0).unique()
-                        for m in metrics:
-                            m_cols = item_qty_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols: item_qty_pivot[c] = pd.to_numeric(item_qty_pivot[c], errors='coerce').fillna(0)
-                            item_qty_pivot[(m, 'TOTAL')] = item_qty_pivot[m_cols].sum(axis=1)
+                        item_qty_pivot = v_i_qty_clean.unstack(level=0).fillna(0)
                         if ('Sales_Qty', 'TOTAL') in item_qty_pivot.columns:
                             item_qty_pivot = item_qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
-                        format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY", col_w=30)
+                        format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY (CLEAN)", col_w=30)
 
-                        item_val_pivot = v_i_val.unstack(level=0).fillna(0)
-                        metrics = item_val_pivot.columns.get_level_values(0).unique()
-                        for m in metrics:
-                            m_cols = item_val_pivot.loc[:, (m, slice(None))].columns
-                            for c in m_cols: item_val_pivot[c] = pd.to_numeric(item_val_pivot[c], errors='coerce').fillna(0)
-                            item_val_pivot[(m, 'TOTAL')] = item_val_pivot[m_cols].sum(axis=1)
+                        item_val_pivot = v_i_val_clean.unstack(level=0).fillna(0)
                         if ('Sales_Val', 'TOTAL') in item_val_pivot.columns:
                             item_val_pivot = item_val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
-                        format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY", col_w=30)
+                        format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY (CLEAN)", col_w=30)
 
                         if not v_top10_all.empty:
                             ws5 = workbook.add_worksheet('TOP&BTM 10')
@@ -1097,25 +1102,51 @@ def main_app_interface(authenticator, name, permissions):
                             
                             df.to_excel(writer, sheet_name='Master Data Raw', index=False)
 
-                    excel_data = output.getvalue()
-                    col_d1, col_d2 = st.columns([2,1])
+                    # ----------------------------------------------------
+                    # FILE 2: BUILD UNMAPPED STORES & ITEMS REPORT
+                    # ----------------------------------------------------
+                    output_unmapped = io.BytesIO()
+                    with pd.ExcelWriter(output_unmapped, engine='xlsxwriter') as writer_unmapped:
+                        wb_un = writer_unmapped.book
+                        title_fmt_un = wb_un.add_format({'bold': True, 'font_size': 14, 'color': '#C00000'})
+                        header_un = wb_un.add_format({'bold': True, 'border': 1, 'bg_color': '#FCE4D6', 'align': 'center'})
+                        cell_un = wb_un.add_format({'border': 1})
+                        num_un = wb_un.add_format({'num_format': '#,##0.00', 'border': 1})
+
+                        # Tab 1: Unmapped Rows
+                        if not df_unmapped_raw.empty:
+                            df_unmapped_raw.to_excel(writer_unmapped, sheet_name='Unmapped Data Rows', index=False, startrow=2)
+                            ws_un1 = writer_unmapped.sheets['Unmapped Data Rows']
+                            ws_un1.write(0, 0, "⚠️ ALL UNMAPPED ENTRIES TRANSACTION LOG", title_fmt_un)
+                        else:
+                            # Fallback if empty
+                            empty_df = pd.DataFrame([["Perfect match! No unmapped items or stores found."]], columns=["Status"])
+                            empty_df.to_excel(writer_unmapped, sheet_name='Unmapped Data Rows', index=False)
+
+                    excel_data_clean = output_clean.getvalue()
+                    excel_data_unmapped = output_unmapped.getvalue()
+
+                    # Render Download Buttons Side by Side
+                    col_d1, col_d2 = st.columns(2)
                     with col_d1:
-                         st.download_button(label="📥 Download Full Excel Report", data=excel_data, file_name=f"Report_{sel_year}_{rpt}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        st.download_button(
+                            label="📥 Download Clean Full Excel Report", 
+                            data=excel_data_clean, 
+                            file_name=f"Clean_Report_{sel_year}_{rpt}.xlsx", 
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    with col_d2:
+                        if not df_unmapped_raw.empty:
+                            st.download_button(
+                                label="⚠️ Download Unmapped Stores & Items Report", 
+                                data=excel_data_unmapped, 
+                                file_name=f"UNMAPPED_Log_{sel_year}_{rpt}.xlsx", 
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        else:
+                            st.button("✅ No Unmapped Data Found", disabled=True)
 
                     c1, c2 = st.columns([3, 1])
-                    rep_name = c1.text_input("Report Name (e.g. Week48)", "")
-                    if c2.button("💾 Save All to History"):
-                        if urls['h'] and rep_name:
-                            with st.spinner("Saving..."):
-                                write_to_sheet(urls['h'], f"Rep_{rep_name}_StoreQty", v_s_qty)
-                                write_to_sheet(urls['h'], f"Rep_{rep_name}_StoreVal", v_s_val)
-                                write_to_sheet(urls['h'], f"Rep_{rep_name}_ItemQty", v_i_qty)
-                                write_to_sheet(urls['h'], f"Rep_{rep_name}_ItemVal", v_i_val)
-                                write_to_sheet(urls['h'], f"Rep_{rep_name}_Top10", v_top10_all)
-                                write_to_sheet(urls['h'], f"Rep_{rep_name}_Master", df)
-                                st.success("✅ Saved!")
-                        else: st.error("Need URL & Name")
-
     elif app_mode == "🗄️ Saved Reports":
         if urls['h']:
             reps = get_saved_reports(urls['h'])
