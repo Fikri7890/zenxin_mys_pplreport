@@ -942,8 +942,19 @@ def main_app_interface(authenticator, name, permissions):
                     is_unmapped_store = df['Store'].astype(str).str.startswith('UNMAPPED')
                     is_unmapped_item = df['Article_Code'].astype(str).str.startswith('Unmapped')
                     
-                    df_clean = df[~(is_unmapped_store | is_unmapped_item)]
-                    df_unmapped_raw = df[is_unmapped_store | is_unmapped_item]
+                    # 2. Check metrics to see where the activity is coming from
+                    has_sales_data = (df['Sales_Qty'] > 0) | (df['Sales_Val'] > 0)
+                    has_distribution_data = (df['Dist_Qty'] > 0) | (df['Dist_Val'] > 0)
+                    no_distribution_data = (df['Dist_Qty'] == 0) & (df['Dist_Val'] == 0)
+                    
+                    # 3. CLEAN REPORT RULE: 
+                    # Exclude an unmapped row ONLY IF it has no distribution data.
+                    # If it HAS distribution data, allow it to stay in the clean report!
+                    df_clean = df[~((is_unmapped_store) & ~has_distribution_data)]
+                    
+                    # 4. UNMAPPED REPORT LOG RULE:
+                    # Only catch rows that are unmapped, have sales impact, but are completely missing from distribution sheets
+                    df_unmapped_raw = df[(is_unmapped_store | is_unmapped_item) & has_sales_data & no_distribution_data]
 
                     # Regenerate summaries exclusively for the Clean Excel Report
                     v_s_qty_clean = df_clean.groupby([group_col, 'Store'])[qty_display_list].sum()
