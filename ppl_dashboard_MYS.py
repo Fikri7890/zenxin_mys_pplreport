@@ -957,17 +957,37 @@ def main_app_interface(authenticator, name, permissions):
                     df_unmapped_raw = df[(is_unmapped_store | is_unmapped_item) & has_sales_data & no_distribution_data]
 
                     # Regenerate summaries exclusively for the Clean Excel Report
-                    v_s_qty_clean = df_clean.groupby([group_col, 'Store'])[qty_display_list].sum()
-                    v_s_qty_clean['STR%'] = (v_s_qty_clean['Sales_Qty'] / v_s_qty_clean['Dist_Qty'].replace(0, 1)) * 100
-                    v_s_qty_clean['STR%'] = v_s_qty_clean['STR%'].replace([np.inf, -np.inf], 0).fillna(0).round(0)
-                    
-                    v_s_val_clean = df_clean.groupby([group_col, 'Store'])[val_display_list].sum()
-                    
-                    v_i_qty_clean = df_clean.groupby([group_col, 'Article_Code', 'Item_Name'])[qty_display_list].sum()
-                    v_i_qty_clean['STR%'] = (v_i_qty_clean['Sales_Qty'] / v_i_qty_clean['Dist_Qty'].replace(0, 1)) * 100
-                    v_i_qty_clean['STR%'] = v_i_qty_clean['STR%'].replace([np.inf, -np.inf], 0).fillna(0).round(0)
-                    
-                    v_i_val_clean = df_clean.groupby([group_col, 'Article_Code', 'Item_Name'])[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum()
+                    def create_hierarchical_qty(df_source, primary_col, secondary_col, time_col):
+                        # 1. Master Rows (Store Totals)
+                        p = df_source.groupby([primary_col, time_col])[qty_display_list].sum()
+                        p['STR%'] = (p['Sales_Qty'] / p['Dist_Qty'].replace(0, 1) * 100).replace([np.inf, -np.inf], 0).fillna(0).round(0)
+                        p = p.reset_index()
+                        p['Detail'] = " SUMMARY" # Space forces it to sort to the top
+                        
+                        # 2. Detail Rows (Items inside Store)
+                        c = df_source.groupby([primary_col, secondary_col, time_col])[qty_display_list].sum()
+                        c['STR%'] = (c['Sales_Qty'] / c['Dist_Qty'].replace(0, 1) * 100).replace([np.inf, -np.inf], 0).fillna(0).round(0)
+                        c = c.reset_index().rename(columns={secondary_col: 'Detail'})
+                        
+                        # 3. Combine and Pivot (Keep as MultiIndex for precise grouping later)
+                        combined = pd.concat([p, c]).set_index([primary_col, 'Detail', time_col])
+                        unstacked = combined.unstack(level=2).fillna(0).sort_index(level=[0, 1])
+                        return unstacked
+
+                    def create_hierarchical_val(df_source, primary_col, secondary_col, time_col):
+                        p = df_source.groupby([primary_col, time_col])[val_display_list].sum().reset_index()
+                        p['Detail'] = " SUMMARY"
+                        
+                        c = df_source.groupby([primary_col, secondary_col, time_col])[val_display_list].sum().reset_index().rename(columns={secondary_col: 'Detail'})
+                        
+                        combined = pd.concat([p, c]).set_index([primary_col, 'Detail', time_col])
+                        unstacked = combined.unstack(level=2).fillna(0).sort_index(level=[0, 1])
+                        return unstacked
+
+                    qty_pivot = create_hierarchical_qty(df_clean, 'Store', 'Item_Name', group_col)
+                    val_pivot = create_hierarchical_val(df_clean, 'Store', 'Item_Name', group_col)
+                    item_qty_pivot = create_hierarchical_qty(df_clean, 'Item_Name', 'Store', group_col)
+                    item_val_pivot = create_hierarchical_val(df_clean, 'Item_Name', 'Store', group_col)
 
                     # ----------------------------------------------------
                     # FILE 1: BUILD CLEAN FULL REPORT
@@ -998,17 +1018,44 @@ def main_app_interface(authenticator, name, permissions):
 
                         def format_pivot(df_to_write, sheet_name, title, col_w=20):
                             if df_to_write.empty: return
-                            totals = df_to_write.sum(numeric_only=True)
+                            
+                            # 1. Use the unflattened MultiIndex to safely calculate Grand Totals 
+                            master_mask = df_to_write.index.get_level_values(1) == " SUMMARY"
+                            totals = df_to_write[master_mask].sum(numeric_only=True)
+                            
+                            # 2. Build the 1-Column visual list and strictly map out outline levels
+                            flat_index = []
+                            outline_levels = []
+                            for p, d in df_to_write.index:
+                                if d == " SUMMARY":
+                                    flat_index.append(str(p))
+                                    outline_levels.append(0) # Store row (Master)
+                                else:
+                                    flat_index.append(f"      ↳ {d}")
+                                    outline_levels.append(1) # Item row (Detail)
+                                    
+                            # 3. Replace the 2-column MultiIndex with the beautiful 1-column list
+                            df_to_write.index = flat_index
+                            df_to_write.index.name = "Store" if "Store" in sheet_name else "Item Name"
+                            
+                            # 4. Write to Excel
                             df_to_write.to_excel(writer, sheet_name=sheet_name, startrow=2)
                             ws = writer.sheets[sheet_name]
                             ws.write(0, 0, title, title_fmt)
                             
-                            idx_cols = df_to_write.index.nlevels
+                            # Enable Outline Symbols (+ / -)
+                            ws.outline_settings(visible=True, symbols_below=False, symbols_right=True, auto_style=False)
+                            
+                            idx_cols = 1 # Keep 1 column layout
                             num_cols = len(df_to_write.columns)
                             hdr_rows = df_to_write.columns.nlevels
-                            total_row = 2 + hdr_rows + len(df_to_write.index) 
                             
-                            ws.set_column(0, idx_cols - 1, col_w, cell_fmt)
+                            # FIX: Pandas automatically inserts an extra row for the index name when dealing with multi-columns. 
+                            # We must offset the data_start_row by +1 so it targets the actual Store names!
+                            data_start_row = 2 + hdr_rows + 1 
+                            total_row = data_start_row + len(df_to_write.index) 
+                            
+                            ws.set_column(0, 0, col_w, cell_fmt)
                             for c_idx, col_tuple in enumerate(df_to_write.columns):
                                 excel_c = idx_cols + c_idx
                                 metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
@@ -1017,8 +1064,9 @@ def main_app_interface(authenticator, name, permissions):
                             
                             for i, idx_name in enumerate(df_to_write.index.names):
                                 name = str(idx_name) if idx_name else ""
-                                for r in range(2, 2 + hdr_rows):
-                                    val = name if r == 2 + hdr_rows - 1 else ""
+                                # Format all the header rows on the left, including the new index name row
+                                for r in range(2, data_start_row):
+                                    val = name if r == data_start_row - 1 else ""
                                     ws.write(r, i, val, header_base)
 
                             for c_idx, col_tuple in enumerate(df_to_write.columns):
@@ -1030,13 +1078,21 @@ def main_app_interface(authenticator, name, permissions):
                                         ws.write(2 + r_idx, excel_c, str(val), c_fmt)
                                 else:
                                     ws.write(2, excel_c, str(col_tuple), c_fmt)
+                                    
+                            # --- APPLY COLLAPSIBLE ROW GROUPS (+/-) DIRECTLY FROM STRICT MAP ---
+                            for row_idx, level_id in enumerate(outline_levels):
+                                actual_excel_row = data_start_row + row_idx
                                 
+                                if level_id == 0:
+                                    # Master Row (Store names) -> Visible by default, gets the [+]
+                                    ws.set_row(actual_excel_row, None, None, {'level': 0, 'collapsed': True})
+                                else:
+                                    # Indented Detail Row (Items) -> Hidden cleanly underneath the Master
+                                    ws.set_row(actual_excel_row, None, None, {'level': 1, 'hidden': True})
+                            
                             ws.set_row(total_row, 20, total_fmt)
-                            if idx_cols > 1:
-                                ws.merge_range(total_row, 0, total_row, idx_cols - 1, "GRAND TOTAL", total_fmt)
-                            else:
-                                ws.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
-                                
+                            ws.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
+                            
                             for col in range(idx_cols, idx_cols + num_cols):
                                 col_tuple = df_to_write.columns[col - idx_cols]
                                 metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
@@ -1057,26 +1113,11 @@ def main_app_interface(authenticator, name, permissions):
                                     t_fmt = total_num_fmt
                                 ws.write_number(total_row, col, val, t_fmt)
 
-                        # Write cleaned sheets
-                        qty_pivot = v_s_qty_clean.unstack(level=0).fillna(0)
-                        if ('Sales_Qty', 'TOTAL') in qty_pivot.columns:
-                            qty_pivot = qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
+                        # Create the 4 clean sheets
                         format_pivot(qty_pivot, 'Store Qty', "📊 STORE QUANTITY ANALYSIS (CLEAN)", col_w=35)
-
-                        val_pivot = v_s_val_clean.unstack(level=0).fillna(0)
-                        if ('Sales_Val', 'TOTAL') in val_pivot.columns:
-                            val_pivot = val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
                         format_pivot(val_pivot, 'Store $', "💰 STORE VALUE ANALYSIS (CLEAN)", col_w=35)
-
-                        item_qty_pivot = v_i_qty_clean.unstack(level=0).fillna(0)
-                        if ('Sales_Qty', 'TOTAL') in item_qty_pivot.columns:
-                            item_qty_pivot = item_qty_pivot.sort_values(('Sales_Qty', 'TOTAL'), ascending=False)
-                        format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY (CLEAN)", col_w=30)
-
-                        item_val_pivot = v_i_val_clean.unstack(level=0).fillna(0)
-                        if ('Sales_Val', 'TOTAL') in item_val_pivot.columns:
-                            item_val_pivot = item_val_pivot.sort_values(('Sales_Val', 'TOTAL'), ascending=False)
-                        format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY (CLEAN)", col_w=30)
+                        format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY (CLEAN)", col_w=40)
+                        format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY (CLEAN)", col_w=40)
 
                         if not v_top10_all.empty:
                             ws5 = workbook.add_worksheet('TOP&BTM 10')
