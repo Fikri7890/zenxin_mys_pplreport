@@ -17,7 +17,7 @@ def get_gspread_client():
 def make_url(sheet_id):
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
 
-
+@st.cache_data(ttl=300)
 def load_google_sheet(url, sheet_name=0):
     try:
         client = get_gspread_client()
