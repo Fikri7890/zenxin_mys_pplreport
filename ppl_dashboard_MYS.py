@@ -827,6 +827,16 @@ def main_app_interface(authenticator, name, permissions):
                                 for c in m_cols:
                                     summary[c] = pd.to_numeric(summary[c], errors='coerce').fillna(0)
                                 summary[(m, 'TOTAL')] = summary[m_cols].sum(axis=1)
+                            
+                            if group_col == "Month":
+                                month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                            def screen_sort_key(col_tuple):
+                                m, t = col_tuple
+                                m_idx = list(metrics).index(m) if m in metrics else 99
+                                if t == 'TOTAL': t_idx = 100
+                                else: t_idx = month_order.index(t) if t in month_order else 99
+                                return (m_idx, t_idx)
+                            summary = summary.reindex(columns=sorted(summary.columns, key=screen_sort_key))
                             if (sort_col, 'TOTAL') in summary.columns:
                                 summary = summary.sort_values((sort_col, 'TOTAL'), ascending=False)
                             st.markdown(f"### 🏢 Store Summary")
@@ -855,6 +865,9 @@ def main_app_interface(authenticator, name, permissions):
                                     for c in m_cols:
                                         detail_view[c] = pd.to_numeric(detail_view[c], errors='coerce').fillna(0)
                                     detail_view[(m, 'TOTAL')] = detail_view[m_cols].sum(axis=1)
+                                
+                                if group_col == "Month":
+                                    detail_view = detail_view.reindex(columns=sorted(detail_view.columns, key=screen_sort_key))
                                 if (sort_col, 'TOTAL') in detail_view.columns:
                                     detail_view = detail_view.sort_values((sort_col, 'TOTAL'), ascending=False)
                                 st.markdown(f"#### 📦 Items in {selected_store}")
@@ -882,6 +895,17 @@ def main_app_interface(authenticator, name, permissions):
                                 dist_total =summary[('Dist_Qty','TOTAL')]
                                 str_vals = (sales_total/dist_total * 100).replace([float('inf'), -float('inf')], 0)
                                 summary[('STR%', 'TOTAL')] = str_vals.round(0)
+                            if group_col == "Month":
+                                month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                                actual_metrics = list(metrics)
+                                if 'Sales_Qty' in actual_metrics and 'Dist_Qty' in actual_metrics: actual_metrics.append('STR%')
+                                def item_sort_key(col_tuple):
+                                    m, t = col_tuple
+                                    m_idx = actual_metrics.index(m) if m in actual_metrics else 99
+                                    if t == 'TOTAL': t_idx = 100
+                                    else: t_idx = month_order.index(t) if t in month_order else 99
+                                    return (m_idx, t_idx)
+                                summary = summary.reindex(columns=sorted(summary.columns, key=item_sort_key))
                             if (sort_col, 'TOTAL') in summary.columns:
                                 summary = summary.sort_values((sort_col, 'TOTAL'), ascending=False)
                             st.markdown(f"### 📦 Item Summary")
@@ -894,7 +918,7 @@ def main_app_interface(authenticator, name, permissions):
                             for item in limit_list:
                                 val = summary.loc[item, (sort_col, 'TOTAL')]
                                 item_options.append(f"{item} | Total {sort_col}: {val:,.2f}")
-                            sel_item_str = st.selectbox(f"Select Item ({sort_col})", options=item_options, key=f"sel_item_{tab}_{sort_col}")
+                            sel_item_str = st.selectbox(f"Select Item ({sort_col})", options=item_options, key=f"sel_item_{id(tab)}_{sort_col}")
                             if sel_item_str:
                                 selected_item = sel_item_str.split(" | ")[0]
                                 item_mask = df['Item_Name'] == selected_item
