@@ -828,8 +828,7 @@ def main_app_interface(authenticator, name, permissions):
                                     summary[c] = pd.to_numeric(summary[c], errors='coerce').fillna(0)
                                 summary[(m, 'TOTAL')] = summary[m_cols].sum(axis=1)
                             
-                            if group_col == "Month":
-                                month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                            month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
                             def screen_sort_key(col_tuple):
                                 m, t = col_tuple
                                 m_idx = list(metrics).index(m) if m in metrics else 99
