@@ -917,7 +917,7 @@ def main_app_interface(authenticator, name, permissions):
                             for item in limit_list:
                                 val = summary.loc[item, (sort_col, 'TOTAL')]
                                 item_options.append(f"{item} | Total {sort_col}: {val:,.2f}")
-                            sel_item_str = st.selectbox(f"Select Item ({sort_col})", options=item_options, key=f"sel_item_{id(tab)}_{sort_col}")
+                            sel_item_str = st.selectbox(f"Select Item ({sort_col})", options=item_options, key=f"sel_item_{tab}_{sort_col}")
                             if sel_item_str:
                                 selected_item = sel_item_str.split(" | ")[0]
                                 item_mask = df['Item_Name'] == selected_item
