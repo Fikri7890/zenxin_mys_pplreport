@@ -454,7 +454,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
 
     if df_dist2_raw is not None and not df_dist2_raw.empty:
         dist2_cols = {
-            'NAV': ['Item No.'], 'Qty': ['Quantity'], 'Store': ['Location Name'], 
+            'NAV': ['Item No.'], 'Qty': ['Quantity'], 'Store': ['Location Code'], 
             'UOM': ['Unit of Measure Code'], 'Name': ['Item Description'], 
             'Cost': ['Cost Amount (Actual)'], 'Date': ['Posting Date']
         }
