@@ -78,16 +78,28 @@ def get_rank_table(df, group_col, sort_by='Profit', top=True, n=10):
         aggfunc='sum'
     ).fillna(0)
     
-    # 5. NEW: Add the TOTAL columns for every metric so we can sort by them
+    # 5. Add the TOTAL columns for every metric so we can sort by them
     metrics = pivot_df.columns.get_level_values(0).unique()
     for m in metrics:
         pivot_df[(m, 'TOTAL')] = pivot_df[m].sum(axis=1)
     
-    # 6. Sort columns order
+    # 6. FIXED: Sort metrics cleanly AND months chronologically
     metric_order = {'Dist_Val': 0, 'Sales_Val': 1, 'Waste_Val': 2, 'Profit': 3}
-    pivot_df = pivot_df.sort_index(axis=1, key=lambda x: [metric_order.get(m, 99) for m in x.get_level_values(0)])
+    month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     
-    # 7. Sort the rows by Profit Total (Now this will work because the column exists)
+    def rank_table_sort_key(col_tuple):
+        m, t = col_tuple
+        m_idx = metric_order.get(m, 99)
+        if t == 'TOTAL': 
+            t_idx = 100
+        else: 
+            t_idx = month_order.index(t) if (group_col == "Month" and t in month_order) else t
+        return (m_idx, t_idx)
+    
+    sorted_cols = sorted(pivot_df.columns, key=rank_table_sort_key)
+    pivot_df = pivot_df.reindex(columns=sorted_cols)
+    
+    # 7. Sort the rows by Profit Total
     pivot_df = pivot_df.sort_values(by=('Profit', 'TOTAL'), ascending=not top)
     
     return pivot_df
@@ -931,11 +943,20 @@ def main_app_interface(authenticator, name, permissions):
                                     for c in m_cols:
                                         item_view[c] = pd.to_numeric(item_view[c], errors='coerce').fillna(0)
                                     item_view[(m, 'TOTAL')] = item_view[m_cols].sum(axis=1)
+                                if group_col == "Month":
+                                    child_metrics = list(d_metrics)
+                                    def child_sort_key(col_tuple):
+                                        m, t = col_tuple
+                                        m_idx = child_metrics.index(m) if m in child_metrics else 99
+                                        if t == 'TOTAL': t_idx = 100
+                                        else: t_idx = month_order.index(t) if t in month_order else 99
+                                        return (m_idx, t_idx)
+                                    item_view = item_view.reindex(columns=sorted(item_view.columns, key=child_sort_key))
                                 if (sort_col, 'TOTAL') in item_view.columns:
                                     item_view = item_view.sort_values((sort_col, 'TOTAL'), ascending=False)
                                 st.markdown(f"#### 📍 Stores selling {selected_item}")
                                 f_det = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in item_view.columns}
-                                st.dataframe(item_view.sort_index(axis=1).style.format(f_det), width='stretch')
+                                st.dataframe(item_view.style.format(f_det), width='stretch')
 
                     display_item_drilldown(t3, qty_display_list, 'Sales_Qty', "{:,.2f}",group_col)
                     display_item_drilldown(t4, val_display_list, 'Sales_Val', "{:,.2f}",group_col)
@@ -1011,7 +1032,32 @@ def main_app_interface(authenticator, name, permissions):
                     val_pivot = create_hierarchical_val(df_clean, 'Store', 'Item_Name', group_col)
                     item_qty_pivot = create_hierarchical_qty(df_clean, 'Item_Name', 'Store', group_col)
                     item_val_pivot = create_hierarchical_val(df_clean, 'Item_Name', 'Store', group_col)
-
+                    if group_col == "Month":
+                        month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        
+                        # Explicitly assigns sorting weights to force metrics to the far right
+                        metric_order_weights = {
+                            'Dist_Qty': 0, 'Sales_Qty': 1, 'Waste_Qty': 2, 'Balance Stock': 3, 'STR%': 4,
+                            'Dist_Val': 0, 'Sales_Val': 1, 'Waste_Val': 2, 'Profit': 3
+                        }
+                        
+                        # Unpacks 3 levels safely (Metric, Year, Month) and orders by custom weight
+                        def chronological_column_key(col_tuple):
+                            metric_name, month_name = col_tuple
+                            
+                            m_weight = metric_order_weights.get(metric_name, 99)
+                            m_idx = month_order.index(month_name) if month_name in month_order else 99
+                            return (m_weight, m_idx)
+                        
+                        # Reindex all 4 pivots safely using the custom priority rules
+                        if not qty_pivot.empty:
+                            qty_pivot = qty_pivot.reindex(columns=sorted(qty_pivot.columns, key=chronological_column_key))
+                        if not val_pivot.empty:
+                            val_pivot = val_pivot.reindex(columns=sorted(val_pivot.columns, key=chronological_column_key))
+                        if not item_qty_pivot.empty:
+                            item_qty_pivot = item_qty_pivot.reindex(columns=sorted(item_qty_pivot.columns, key=chronological_column_key))
+                        if not item_val_pivot.empty:
+                            item_val_pivot = item_val_pivot.reindex(columns=sorted(item_val_pivot.columns, key=chronological_column_key))
                     # ----------------------------------------------------
                     # FILE 1: BUILD CLEAN FULL REPORT
                     # ----------------------------------------------------
