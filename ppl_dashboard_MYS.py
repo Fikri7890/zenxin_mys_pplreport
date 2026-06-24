@@ -7,7 +7,7 @@ import gspread
 import io
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- 1. SHARED RESOURCES ----
+# --- 1. SHARED RESOURCES ---
 @st.cache_resource
 def get_gspread_client():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
@@ -83,18 +83,23 @@ def get_rank_table(df, group_col, sort_by='Profit', top=True, n=10):
     for m in metrics:
         pivot_df[(m, 'TOTAL')] = pivot_df[m].sum(axis=1)
     
-    # 6. FIXED: Sort metrics cleanly AND months chronologically
+    # 6. FIXED: Use a 3-element tuple layout to prevent int vs str crashes
     metric_order = {'Dist_Val': 0, 'Sales_Val': 1, 'Waste_Val': 2, 'Profit': 3}
     month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     
     def rank_table_sort_key(col_tuple):
         m, t = col_tuple
         m_idx = metric_order.get(m, 99)
-        if t == 'TOTAL': 
-            t_idx = 100
-        else: 
-            t_idx = month_order.index(t) if (group_col == "Month" and t in month_order) else t
-        return (m_idx, t_idx)
+        
+        if t == 'TOTAL':
+            # The middle flag '1' pushes TOTAL columns to the very end of their metric block safely
+            return (m_idx, 1, 0 if group_col == "Month" else '')
+        else:
+            # The middle flag '0' handles regular layout metrics first
+            if group_col == "Month" and t in month_order:
+                return (m_idx, 0, month_order.index(t))
+            else:
+                return (m_idx, 0, t)
     
     sorted_cols = sorted(pivot_df.columns, key=rank_table_sort_key)
     pivot_df = pivot_df.reindex(columns=sorted_cols)
