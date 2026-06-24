@@ -7,7 +7,7 @@ import gspread
 import io
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- 1. SHARED RESOURCES ---
+# --- 1. SHARED RESOURCES ----
 @st.cache_resource
 def get_gspread_client():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
