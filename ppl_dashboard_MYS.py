@@ -1251,6 +1251,21 @@ def main_app_interface(authenticator, name, permissions):
                                     t_fmt = total_num_fmt
                                 ws.write_number(total_row, col, val, t_fmt)
 
+                            neg_profit_fmt = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'bold': True, 'border': 1})
+                            for c_idx, col_tuple in enumerate(df_to_write.columns):
+                                excel_c = idx_cols + c_idx
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                if 'PROFIT' in str(metric).upper():
+                                    ws.conditional_format(
+                                        data_start_row, excel_c, total_row, excel_c,
+                                        {
+                                            'type': 'cell',
+                                            'criteria': '<',
+                                            'value': 0,
+                                            'format': neg_profit_fmt
+                                        }
+                                    )
+
                         # Create the 4 clean sheets
                         format_pivot(qty_pivot, 'Store Qty', "📊 STORE QUANTITY ANALYSIS (CLEAN)", col_w=35)
                         format_pivot(val_pivot, 'Store $', "💰 STORE VALUE ANALYSIS (CLEAN)", col_w=35)
@@ -1355,6 +1370,7 @@ def main_app_interface(authenticator, name, permissions):
                             ws6.set_column(1, len(top10_stores_ex.columns) + 1, 14, num_fmt)
                             
                             df.to_excel(writer, sheet_name='Master Data Raw', index=False)
+                    
 
                     # ----------------------------------------------------
                     # FILE 2: BUILD UNMAPPED STORES & ITEMS REPORT
