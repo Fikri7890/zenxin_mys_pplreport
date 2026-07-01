@@ -108,6 +108,54 @@ def get_rank_table(df, group_col, sort_by='Profit', top=True, n=10):
     pivot_df = pivot_df.sort_values(by=('Profit', 'TOTAL'), ascending=not top)
     
     return pivot_df
+
+def get_store_rank_table(df, group_col, sort_by='Profit', top=True, n=10):
+    # 1. Calculate totals per store for the target metric to find top/bottom performers
+    totals = df.groupby('Store')[sort_by].sum()
+    
+    # 2. Extract the target stores
+    if top:
+        ranked_stores = totals.nlargest(n).index
+    else:
+        ranked_stores = totals.nsmallest(n).index
+        
+    # 3. Filter data for just those stores
+    subset = df[df['Store'].isin(ranked_stores)]
+    
+    # 4. Generate the structured Pivot Table broken down by month/week
+    pivot_df = subset.pivot_table(
+        index='Store', 
+        columns=group_col, 
+        values=['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit'], 
+        aggfunc='sum'
+    ).fillna(0)
+    
+    # 5. Inject a grand total baseline calculation column per row
+    metrics = pivot_df.columns.get_level_values(0).unique()
+    for m in metrics:
+        pivot_df[(m, 'TOTAL')] = pivot_df[m].sum(axis=1)
+        
+    # 6. Apply sequence mapping weights to align blocks chronologically
+    metric_order = {'Dist_Val': 0, 'Sales_Val': 1, 'Waste_Val': 2, 'Profit': 3}
+    month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    def store_table_sort_key(col_tuple):
+        m, t = col_tuple
+        m_idx = metric_order.get(m, 99)
+        if t == 'TOTAL':
+            return (m_idx, 1, 0 if group_col == "Month" else '')
+        else:
+            if group_col == "Month" and t in month_order:
+                return (m_idx, 0, month_order.index(t))
+            else:
+                return (m_idx, 0, t)
+                
+    sorted_cols = sorted(pivot_df.columns, key=store_table_sort_key)
+    pivot_df = pivot_df.reindex(columns=sorted_cols)
+    
+    # 7. Order rows based on overall consolidated profit performance
+    pivot_df = pivot_df.sort_values(by=('Profit', 'TOTAL'), ascending=not top)
+    return pivot_df
 # --- 2. DATA PROCESSING HELPERS ---
 def normalize_store_name(name, report_type='AEON', loc_map=None):
     if pd.isna(name) or str(name).strip() == "": return "UNKNOWN"
@@ -830,7 +878,7 @@ def main_app_interface(authenticator, name, permissions):
                     v_top10_all = df.groupby('Item_Name')[['Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']].sum().reset_index()
 
                     st.subheader(f"📊 {rpt} Live Report ({sel_year}-{ft})")
-                    t1, t2, t3, t4, t5, t6 = st.tabs(["📦 QTY (Store)", "💰 $ (Store)", "📦 QTY (Item)", "💰 $ (Item)", "🏆 Top 10", "📉 Bottom 10"])
+                    t1, t2, t3, t4, t5, t6,t7,t8 = st.tabs(["📦 QTY (Store)", "💰 $ (Store)", "📦 QTY (Item)", "💰 $ (Item)", "🏆 Top 10", "📉 Bottom 10","🏪 Top 10 Stores", "🏪 Bottom 10 Stores"])
 
                     def display_drilldown(tab, main_df, detail_cols, sort_col, fmt, time_col):
                         with tab:
@@ -981,6 +1029,22 @@ def main_app_interface(authenticator, name, permissions):
                             # Sorts by Profit, Bottom 10 (Lowest to Highest)
                             bot10_table = get_rank_table(df, group_col, sort_by='Profit', top=False, n=10)
                             st.dataframe(bot10_table.style.format("{:,.2f}"), use_container_width=True)
+                        else:
+                            st.info("No data available.")
+                    
+                    with t7:
+                        st.subheader("🏆 TOP 10 Stores by Profit")
+                        if not df.empty:
+                            top10_stores = get_store_rank_table(df, group_col, sort_by='Profit', top=True, n=10)
+                            st.dataframe(top10_stores.style.format("{:,.2f}"), use_container_width=True)
+                        else:
+                            st.info("No data available.")
+
+                    with t8:
+                        st.subheader("📉 BOTTOM 10 Stores by Profit")
+                        if not df.empty:
+                            bot10_stores = get_store_rank_table(df, group_col, sort_by='Profit', top=False, n=10)
+                            st.dataframe(bot10_stores.style.format("{:,.2f}"), use_container_width=True)
                         else:
                             st.info("No data available.")
                     
@@ -1193,41 +1257,102 @@ def main_app_interface(authenticator, name, permissions):
                         format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY (CLEAN)", col_w=40)
                         format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY (CLEAN)", col_w=40)
 
-                        if not v_top10_all.empty:
+                        if not df_clean.empty:
                             ws5 = workbook.add_worksheet('TOP&BTM 10')
-                            valid_items_df = v_top10_all[(~v_top10_all['Item_Name'].str.startswith('Item ')) & (v_top10_all['Item_Name'] != 'Unknown Item')]
                             
-                            # 1. Get Top 10 by Profit (Highest Profit first)
-                            top10_df = valid_items_df.nlargest(10, 'Profit')
-                            top10_df.columns = ['Top 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
+                            # Filter out unassigned item strings from raw clean records first
+                            valid_items_df = df_clean[(~df_clean['Item_Name'].str.startswith('Item ', na=False)) & (df_clean['Item_Name'] != 'Unknown Item')]
                             
-                            # 2. Get Bottom 10 by Profit (Lowest Profit first)
-                            bottom10_df = valid_items_df.nsmallest(10, 'Profit').sort_values('Profit', ascending=True)
-                            bottom10_df.columns = ['Bottom 10 Items', 'Dist_Val', 'Sales_Val', 'Waste_Val', 'Profit']
+                            # Generate dynamic 2D multi-index timeline rank tables matching active group_col tokens
+                            top10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=True, n=10)
+                            bottom10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=False, n=10)
                             
+                            # --- 1. RENDER TOP 10 CHRONOLOGICAL TIMELINE ---
                             ws5.write(0, 0, "🏆 TOP 10 ITEMS BY PROFIT", title_fmt)
-                            top10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=2, index=False)
+                            top10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=2, index=True)
                             
-                            ws5.write(15, 0, "📉 BOTTOM 10 ITEMS BY PROFIT", title_fmt)
-                            bottom10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=17, index=False)
-                            
-                            ws5.set_column('A:A', 40, cell_fmt)
-                            ws5.set_column('B:E', 15, num_fmt)
-                            
-                            tables = [(2, 'Top 10 Items', top10_df), (17, 'Bottom 10 Items', bottom10_df)]
-                            for start_r, title, df_subset in tables:
-                                ws5.write(start_r, 0, title, header_base)
-                                ws5.write(start_r, 1, 'Dist_Val', fmt_dist)
-                                ws5.write(start_r, 2, 'Sales_Val', fmt_sales)
-                                ws5.write(start_r, 3, 'Waste_Val', fmt_waste)
-                                ws5.write(start_r, 4, 'Profit', fmt_calc)
+                            # Color headers to match standard layout sheets
+                            ws5.write(2, 0, "Item Name", header_base)
+                            ws5.write(3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(top10_df.columns):
+                                excel_c = 1 + c_idx
+                                ws5.write(2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws5.write(3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
                                 
-                                total_row = start_r + len(df_subset) + 1
-                                ws5.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
-                                ws5.write_number(total_row, 1, df_subset['Dist_Val'].sum(), total_num_fmt)
-                                ws5.write_number(total_row, 2, df_subset['Sales_Val'].sum(), total_num_fmt)
-                                ws5.write_number(total_row, 3, df_subset['Waste_Val'].sum(), total_num_fmt)
-                                ws5.write_number(total_row, 4, df_subset['Profit'].sum(), total_num_fmt)
+                            # Write grand summary bottom row
+                            total_row_top = 4 + len(top10_df)
+                            ws5.write(total_row_top, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(top10_df.columns):
+                                val = top10_df[col_tuple].sum()
+                                ws5.write_number(total_row_top, 1 + c_idx, val, total_num_fmt)
+                                
+                            # --- 2. RENDER BOTTOM 10 CHRONOLOGICAL TIMELINE ---
+                            start_btm_row = total_row_top + 3
+                            ws5.write(start_btm_row, 0, "📉 BOTTOM 10 ITEMS BY PROFIT", title_fmt)
+                            bottom10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=start_btm_row + 2, index=True)
+                            
+                            ws5.write(start_btm_row + 2, 0, "Item Name", header_base)
+                            ws5.write(start_btm_row + 3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(bottom10_df.columns):
+                                excel_c = 1 + c_idx
+                                ws5.write(start_btm_row + 2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws5.write(start_btm_row + 3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
+                                
+                            total_row_btm = start_btm_row + 4 + len(bottom10_df)
+                            ws5.write(total_row_btm, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(bottom10_df.columns):
+                                val = bottom10_df[col_tuple].sum()
+                                ws5.write_number(total_row_btm, 1 + c_idx, val, total_num_fmt)
+                                
+                            # Global formatting widths for sheet columns
+                            ws5.set_column(0, 0, 40, cell_fmt)
+                            ws5.set_column(1, len(top10_df.columns) + 1, 14, num_fmt)
+                            
+                            ws6 = workbook.add_worksheet('STORE RANKS')
+                            ws6.write(0, 0, "🏆 TOP 10 STORES BY PROFIT", title_fmt)
+                            
+                            top10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=True, n=10)
+                            top10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=2, index=True)
+                            
+                            # Format headers
+                            ws6.write(2, 0, "Store Name", header_base)
+                            ws6.write(3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(top10_stores_ex.columns):
+                                excel_c = 1 + c_idx
+                                ws6.write(2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws6.write(3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
+                                
+                            # FIX: Inject GRAND TOTAL row for Top 10 Stores
+                            total_row_top = 4 + len(top10_stores_ex)
+                            ws6.write(total_row_top, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(top10_stores_ex.columns):
+                                val = top10_stores_ex[col_tuple].sum()
+                                ws6.write_number(total_row_top, 1 + c_idx, val, total_num_fmt)
+                                
+                            # --- RENDER BOTTOM 10 CHRONOLOGICAL TIMELINE ---
+                            start_btm_store_row = total_row_top + 3
+                            ws6.write(start_btm_store_row, 0, "📉 BOTTOM 10 STORES BY PROFIT", title_fmt)
+                            bot10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=False, n=10)
+                            bot10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=start_btm_store_row + 2, index=True)
+                            
+                            # Format headers
+                            ws6.write(start_btm_store_row + 2, 0, "Store Name", header_base)
+                            ws6.write(start_btm_store_row + 3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(bot10_stores_ex.columns):
+                                excel_c = 1 + c_idx
+                                ws6.write(start_btm_store_row + 2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws6.write(start_btm_store_row + 3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
+                                
+                            # FIX: Inject GRAND TOTAL row for Bottom 10 Stores
+                            total_row_btm = start_btm_store_row + 4 + len(bot10_stores_ex)
+                            ws6.write(total_row_btm, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(bot10_stores_ex.columns):
+                                val = bot10_stores_ex[col_tuple].sum()
+                                ws6.write_number(total_row_btm, 1 + c_idx, val, total_num_fmt)
+                                
+                            # Global formatting widths for sheet columns
+                            ws6.set_column(0, 0, 35, cell_fmt)
+                            ws6.set_column(1, len(top10_stores_ex.columns) + 1, 14, num_fmt)
                             
                             df.to_excel(writer, sheet_name='Master Data Raw', index=False)
 
