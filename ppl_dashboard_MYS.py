@@ -57,7 +57,7 @@ def get_saved_reports(url):
         return sorted(list(reports), reverse=True)
     except: return []
 
-def get_rank_table(df, group_col, sort_by='Profit', top=True, n=10):
+def get_rank_table(df, group_col, sort_by='Profit', top=True, n=11):
     # 1. Calculate totals per item for the sort_by metric to get the ranking
     totals = df.groupby('Item_Name')[sort_by].sum()
     
@@ -1279,8 +1279,8 @@ def main_app_interface(authenticator, name, permissions):
                             valid_items_df = df_clean[(~df_clean['Item_Name'].str.startswith('Item ', na=False)) & (df_clean['Item_Name'] != 'Unknown Item')]
                             
                             # Generate dynamic 2D multi-index timeline rank tables matching active group_col tokens
-                            top10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=True, n=10)
-                            bottom10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=False, n=10)
+                            top10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=True, n=11)
+                            bottom10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=False, n=11)
                             
                             # --- 1. RENDER TOP 10 CHRONOLOGICAL TIMELINE ---
                             ws5.write(0, 0, "🏆 TOP 10 ITEMS BY PROFIT", title_fmt)
@@ -1326,7 +1326,7 @@ def main_app_interface(authenticator, name, permissions):
                             ws6 = workbook.add_worksheet('STORE RANKS')
                             ws6.write(0, 0, "🏆 TOP 10 STORES BY PROFIT", title_fmt)
                             
-                            top10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=True, n=10)
+                            top10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=True, n=11)
                             top10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=2, index=True)
                             
                             # Format headers
@@ -1347,7 +1347,7 @@ def main_app_interface(authenticator, name, permissions):
                             # --- RENDER BOTTOM 10 CHRONOLOGICAL TIMELINE ---
                             start_btm_store_row = total_row_top + 3
                             ws6.write(start_btm_store_row, 0, "📉 BOTTOM 10 STORES BY PROFIT", title_fmt)
-                            bot10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=False, n=10)
+                            bot10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=False, n=11)
                             bot10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=start_btm_store_row + 2, index=True)
                             
                             # Format headers
