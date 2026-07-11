@@ -1009,4 +1009,451 @@ def main_app_interface(authenticator, name, permissions):
                                     item_view = item_view.sort_values((sort_col, 'TOTAL'), ascending=False)
                                 st.markdown(f"#### 📍 Stores selling {selected_item}")
                                 f_det = {c: "{:,.0f}" if 'STR%' in str(c) else fmt for c in item_view.columns}
-                                st.dataframe(item_view.style.format(f_det), width='s
+                                st.dataframe(item_view.style.format(f_det), width='stretch')
+
+                    display_item_drilldown(t3, qty_display_list, 'Sales_Qty', "{:,.2f}",group_col)
+                    display_item_drilldown(t4, val_display_list, 'Sales_Val', "{:,.2f}",group_col)
+
+                    with t5:
+                        st.subheader("🏆 TOP 10 Items by Profit")
+                        if not df.empty:
+                            # Sorts by Profit, Top 10 (Highest to Lowest)
+                            top10_table = get_rank_table(df, group_col, sort_by='Profit', top=True, n=10)
+                            st.dataframe(top10_table.style.format("{:,.2f}"), use_container_width=True)
+                        else:
+                            st.info("No data available.")
+
+                    with t6:
+                        st.subheader("📉 BOTTOM 10 Items by Profit")
+                        if not df.empty:
+                            # Sorts by Profit, Bottom 10 (Lowest to Highest)
+                            bot10_table = get_rank_table(df, group_col, sort_by='Profit', top=False, n=10)
+                            st.dataframe(bot10_table.style.format("{:,.2f}"), use_container_width=True)
+                        else:
+                            st.info("No data available.")
+                    
+                    with t7:
+                        st.subheader("🏆 TOP 10 Stores by Profit")
+                        if not df.empty:
+                            top10_stores = get_store_rank_table(df, group_col, sort_by='Profit', top=True, n=10)
+                            st.dataframe(top10_stores.style.format("{:,.2f}"), use_container_width=True)
+                        else:
+                            st.info("No data available.")
+
+                    with t8:
+                        st.subheader("📉 BOTTOM 10 Stores by Profit")
+                        if not df.empty:
+                            bot10_stores = get_store_rank_table(df, group_col, sort_by='Profit', top=False, n=10)
+                            st.dataframe(bot10_stores.style.format("{:,.2f}"), use_container_width=True)
+                        else:
+                            st.info("No data available.")
+                    
+                    st.divider()
+                    
+                    # --- DUAL FILE DATA SEGREGATION ---
+                    # Separate clean data from unmapped data
+                    is_unmapped_store = df['Store'].astype(str).str.startswith('UNMAPPED')
+                    is_unmapped_item = df['Article_Code'].astype(str).str.startswith('Unmapped')
+                    
+                    # 2. Check metrics to see where the activity is coming from
+                    has_sales_data = (df['Sales_Qty'] > 0) | (df['Sales_Val'] > 0)
+                    has_distribution_data = (df['Dist_Qty'] > 0) | (df['Dist_Val'] > 0)
+                    no_distribution_data = (df['Dist_Qty'] == 0) & (df['Dist_Val'] == 0)
+                    
+                    # 3. CLEAN REPORT RULE: 
+                    # Exclude an unmapped row ONLY IF it has no distribution data.
+                    # If it HAS distribution data, allow it to stay in the clean report!
+                    df_clean = df[~((is_unmapped_store) & ~has_distribution_data)]
+                    
+                    # 4. UNMAPPED REPORT LOG RULE:
+                    # Only catch rows that are unmapped, have sales impact, but are completely missing from distribution sheets
+                    df_unmapped_raw = df[(is_unmapped_store | is_unmapped_item) & has_sales_data & no_distribution_data]
+
+                    # Regenerate summaries exclusively for the Clean Excel Report
+                    def create_hierarchical_qty(df_source, primary_col, secondary_col, time_col):
+                        # 1. Master Rows (Store Totals)
+                        p = df_source.groupby([primary_col, time_col])[qty_display_list].sum()
+                        p['STR%'] = (p['Sales_Qty'] / p['Dist_Qty'].replace(0, 1) * 100).replace([np.inf, -np.inf], 0).fillna(0).round(0)
+                        p = p.reset_index()
+                        p['Detail'] = " SUMMARY" # Space forces it to sort to the top
+                        
+                        # 2. Detail Rows (Items inside Store)
+                        c = df_source.groupby([primary_col, secondary_col, time_col])[qty_display_list].sum()
+                        c['STR%'] = (c['Sales_Qty'] / c['Dist_Qty'].replace(0, 1) * 100).replace([np.inf, -np.inf], 0).fillna(0).round(0)
+                        c = c.reset_index().rename(columns={secondary_col: 'Detail'})
+                        
+                        # 3. Combine and Pivot (Keep as MultiIndex for precise grouping later)
+                        combined = pd.concat([p, c]).set_index([primary_col, 'Detail', time_col])
+                        unstacked = combined.unstack(level=2).fillna(0).sort_index(level=[0, 1])
+                        return unstacked
+
+                    def create_hierarchical_val(df_source, primary_col, secondary_col, time_col):
+                        p = df_source.groupby([primary_col, time_col])[val_display_list].sum().reset_index()
+                        p['Detail'] = " SUMMARY"
+                        
+                        c = df_source.groupby([primary_col, secondary_col, time_col])[val_display_list].sum().reset_index().rename(columns={secondary_col: 'Detail'})
+                        
+                        combined = pd.concat([p, c]).set_index([primary_col, 'Detail', time_col])
+                        unstacked = combined.unstack(level=2).fillna(0).sort_index(level=[0, 1])
+                        return unstacked
+
+                    qty_pivot = create_hierarchical_qty(df_clean, 'Store', 'Item_Name', group_col)
+                    val_pivot = create_hierarchical_val(df_clean, 'Store', 'Item_Name', group_col)
+                    item_qty_pivot = create_hierarchical_qty(df_clean, 'Item_Name', 'Store', group_col)
+                    item_val_pivot = create_hierarchical_val(df_clean, 'Item_Name', 'Store', group_col)
+                    if group_col == "Month":
+                        month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        
+                        # Explicitly assigns sorting weights to force metrics to the far right
+                        metric_order_weights = {
+                            'Dist_Qty': 0, 'Sales_Qty': 1, 'Waste_Qty': 2, 'Balance Stock': 3, 'STR%': 4,
+                            'Dist_Val': 0, 'Sales_Val': 1, 'Waste_Val': 2, 'Profit': 3
+                        }
+                        
+                        # Unpacks 3 levels safely (Metric, Year, Month) and orders by custom weight
+                        def chronological_column_key(col_tuple):
+                            metric_name, month_name = col_tuple
+                            
+                            m_weight = metric_order_weights.get(metric_name, 99)
+                            m_idx = month_order.index(month_name) if month_name in month_order else 99
+                            return (m_weight, m_idx)
+                        
+                        # Reindex all 4 pivots safely using the custom priority rules
+                        if not qty_pivot.empty:
+                            qty_pivot = qty_pivot.reindex(columns=sorted(qty_pivot.columns, key=chronological_column_key))
+                        if not val_pivot.empty:
+                            val_pivot = val_pivot.reindex(columns=sorted(val_pivot.columns, key=chronological_column_key))
+                        if not item_qty_pivot.empty:
+                            item_qty_pivot = item_qty_pivot.reindex(columns=sorted(item_qty_pivot.columns, key=chronological_column_key))
+                        if not item_val_pivot.empty:
+                            item_val_pivot = item_val_pivot.reindex(columns=sorted(item_val_pivot.columns, key=chronological_column_key))
+                    # ----------------------------------------------------
+                    # FILE 1: BUILD CLEAN FULL REPORT
+                    # ----------------------------------------------------
+                    output_clean = io.BytesIO()
+                    with pd.ExcelWriter(output_clean, engine='xlsxwriter') as writer:
+                        workbook = writer.book
+                        title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'color': '#1F497D'})
+                        cell_fmt = workbook.add_format({'border': 1, 'valign': 'vcenter'})
+                        num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'valign': 'vcenter'})
+                        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+                        int_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'valign': 'vcenter'})
+                        total_int_fmt = workbook.add_format({'num_format': '#,##0', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+                        total_num_fmt = workbook.add_format({'num_format': '#,##0.00', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+                        header_base = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': 'black'})
+                        fmt_dist = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#B4C6E7', 'font_color': 'black'}) 
+                        fmt_sales = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F8CBAD', 'font_color': 'black'}) 
+                        fmt_waste = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6E0B4', 'font_color': 'black'}) 
+                        fmt_calc = workbook.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFE699', 'font_color': 'black'}) 
+
+                        def get_fmt(metric_name):
+                            m = str(metric_name).upper()
+                            if 'DIST' in m: return fmt_dist
+                            if 'SALES' in m: return fmt_sales
+                            if 'WASTE' in m: return fmt_waste
+                            if 'STR' in m or 'PROFIT' in m or 'BALANCE' in m: return fmt_calc
+                            return header_base
+
+                        def format_pivot(df_to_write, sheet_name, title, col_w=20):
+                            if df_to_write.empty: return
+                            
+                            # 1. Use the unflattened MultiIndex to safely calculate Grand Totals 
+                            master_mask = df_to_write.index.get_level_values(1) == " SUMMARY"
+                            totals = df_to_write[master_mask].sum(numeric_only=True)
+                            
+                            # 2. Build the 1-Column visual list and strictly map out outline levels
+                            flat_index = []
+                            outline_levels = []
+                            for p, d in df_to_write.index:
+                                if d == " SUMMARY":
+                                    flat_index.append(str(p))
+                                    outline_levels.append(0) # Store row (Master)
+                                else:
+                                    flat_index.append(f"      ↳ {d}")
+                                    outline_levels.append(1) # Item row (Detail)
+                                    
+                            # 3. Replace the 2-column MultiIndex with the beautiful 1-column list
+                            df_to_write.index = flat_index
+                            df_to_write.index.name = "Store" if "Store" in sheet_name else "Item Name"
+                            
+                            # 4. Write to Excel
+                            df_to_write.to_excel(writer, sheet_name=sheet_name, startrow=2)
+                            ws = writer.sheets[sheet_name]
+                            ws.write(0, 0, title, title_fmt)
+                            
+                            # Enable Outline Symbols (+ / -)
+                            ws.outline_settings(visible=True, symbols_below=False, symbols_right=True, auto_style=False)
+                            
+                            idx_cols = 1 # Keep 1 column layout
+                            num_cols = len(df_to_write.columns)
+                            hdr_rows = df_to_write.columns.nlevels
+                            
+                            # FIX: Pandas automatically inserts an extra row for the index name when dealing with multi-columns. 
+                            # We must offset the data_start_row by +1 so it targets the actual Store names!
+                            data_start_row = 2 + hdr_rows + 1 
+                            total_row = data_start_row + len(df_to_write.index) 
+                            
+                            ws.set_column(0, 0, col_w, cell_fmt)
+                            for c_idx, col_tuple in enumerate(df_to_write.columns):
+                                excel_c = idx_cols + c_idx
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                c_fmt = int_fmt if 'STR%' in str(metric).upper() else num_fmt
+                                ws.set_column(excel_c, excel_c, 14, c_fmt)
+                            
+                            for i, idx_name in enumerate(df_to_write.index.names):
+                                name = str(idx_name) if idx_name else ""
+                                # Format all the header rows on the left, including the new index name row
+                                for r in range(2, data_start_row):
+                                    val = name if r == data_start_row - 1 else ""
+                                    ws.write(r, i, val, header_base)
+
+                            for c_idx, col_tuple in enumerate(df_to_write.columns):
+                                excel_c = idx_cols + c_idx
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                c_fmt = get_fmt(metric)
+                                if isinstance(col_tuple, tuple):
+                                    for r_idx, val in enumerate(col_tuple):
+                                        ws.write(2 + r_idx, excel_c, str(val), c_fmt)
+                                else:
+                                    ws.write(2, excel_c, str(col_tuple), c_fmt)
+                                    
+                            # --- APPLY COLLAPSIBLE ROW GROUPS (+/-) DIRECTLY FROM STRICT MAP ---
+                            for row_idx, level_id in enumerate(outline_levels):
+                                actual_excel_row = data_start_row + row_idx
+                                
+                                if level_id == 0:
+                                    # Master Row (Store names) -> Visible by default, gets the [+]
+                                    ws.set_row(actual_excel_row, None, None, {'level': 0, 'collapsed': True})
+                                else:
+                                    # Indented Detail Row (Items) -> Hidden cleanly underneath the Master
+                                    ws.set_row(actual_excel_row, None, None, {'level': 1, 'hidden': True})
+                            
+                            ws.set_row(total_row, 20, total_fmt)
+                            ws.write_string(total_row, 0, "GRAND TOTAL", total_fmt)
+                            
+                            for col in range(idx_cols, idx_cols + num_cols):
+                                col_tuple = df_to_write.columns[col - idx_cols]
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                time_key = col_tuple[1] if isinstance(col_tuple, tuple) else None
+                                
+                                if 'STR%' in str(metric).upper():
+                                    if time_key is not None:
+                                        s_tot = totals.get(('Sales_Qty', time_key), 0)
+                                        d_tot = totals.get(('Dist_Qty', time_key), 0)
+                                    else:
+                                        s_tot = totals.get('Sales_Qty', 0)
+                                        d_tot = totals.get('Dist_Qty', 0)
+                                    val = (s_tot / d_tot * 100) if d_tot > 0 else 0.0
+                                    val = round(val, 0)
+                                    t_fmt = total_int_fmt 
+                                else:
+                                    val = totals.iloc[col - idx_cols]
+                                    t_fmt = total_num_fmt
+                                ws.write_number(total_row, col, val, t_fmt)
+
+                            neg_profit_fmt = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'bold': True, 'border': 1})
+                            for c_idx, col_tuple in enumerate(df_to_write.columns):
+                                excel_c = idx_cols + c_idx
+                                metric = col_tuple[0] if isinstance(col_tuple, tuple) else col_tuple
+                                if 'PROFIT' in str(metric).upper():
+                                    ws.conditional_format(
+                                        data_start_row, excel_c, total_row, excel_c,
+                                        {
+                                            'type': 'cell',
+                                            'criteria': '<',
+                                            'value': 0,
+                                            'format': neg_profit_fmt
+                                        }
+                                    )
+
+                        # Create the 4 clean sheets
+                        format_pivot(qty_pivot, 'Store Qty', "📊 STORE QUANTITY ANALYSIS (CLEAN)", col_w=35)
+                        format_pivot(val_pivot, 'Store $', "💰 STORE VALUE ANALYSIS (CLEAN)", col_w=35)
+                        format_pivot(item_qty_pivot, 'Item Qty', "📦 ITEM QUANTITY SUMMARY (CLEAN)", col_w=40)
+                        format_pivot(item_val_pivot, 'Item $', "💵 ITEM VALUE SUMMARY (CLEAN)", col_w=40)
+
+                        if not df_clean.empty:
+                            ws5 = workbook.add_worksheet('TOP&BTM 10')
+                            
+                            # Filter out unassigned item strings from raw clean records first
+                            valid_items_df = df_clean[(~df_clean['Item_Name'].str.startswith('Item ', na=False)) & (df_clean['Item_Name'] != 'Unknown Item')]
+                            
+                            # Generate dynamic 2D multi-index timeline rank tables matching active group_col tokens
+                            top10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=True, n=11)
+                            bottom10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=False, n=11)
+                            
+                            # --- 1. RENDER TOP 10 CHRONOLOGICAL TIMELINE ---
+                            ws5.write(0, 0, "🏆 TOP 10 ITEMS BY PROFIT", title_fmt)
+                            top10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=2, index=True)
+                            
+                            # Color headers to match standard layout sheets
+                            ws5.write(2, 0, "Item Name", header_base)
+                            ws5.write(3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(top10_df.columns):
+                                excel_c = 1 + c_idx
+                                ws5.write(2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws5.write(3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
+                                
+                            # Write grand summary bottom row
+                            total_row_top = 4 + len(top10_df)
+                            ws5.write(total_row_top, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(top10_df.columns):
+                                val = top10_df[col_tuple].sum()
+                                ws5.write_number(total_row_top, 1 + c_idx, val, total_num_fmt)
+                                
+                            # --- 2. RENDER BOTTOM 10 CHRONOLOGICAL TIMELINE ---
+                            start_btm_row = total_row_top + 3
+                            ws5.write(start_btm_row, 0, "📉 BOTTOM 10 ITEMS BY PROFIT", title_fmt)
+                            bottom10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=start_btm_row + 2, index=True)
+                            
+                            ws5.write(start_btm_row + 2, 0, "Item Name", header_base)
+                            ws5.write(start_btm_row + 3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(bottom10_df.columns):
+                                excel_c = 1 + c_idx
+                                ws5.write(start_btm_row + 2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws5.write(start_btm_row + 3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
+                                
+                            total_row_btm = start_btm_row + 4 + len(bottom10_df)
+                            ws5.write(total_row_btm, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(bottom10_df.columns):
+                                val = bottom10_df[col_tuple].sum()
+                                ws5.write_number(total_row_btm, 1 + c_idx, val, total_num_fmt)
+                                
+                            # Global formatting widths for sheet columns
+                            ws5.set_column(0, 0, 40, cell_fmt)
+                            ws5.set_column(1, len(top10_df.columns) + 1, 14, num_fmt)
+                            
+                            ws6 = workbook.add_worksheet('STORE RANKS')
+                            ws6.write(0, 0, "🏆 TOP 10 STORES BY PROFIT", title_fmt)
+                            
+                            top10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=True, n=11)
+                            top10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=2, index=True)
+                            
+                            # Format headers
+                            ws6.write(2, 0, "Store Name", header_base)
+                            ws6.write(3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(top10_stores_ex.columns):
+                                excel_c = 1 + c_idx
+                                ws6.write(2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws6.write(3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
+                                
+                            # FIX: Inject GRAND TOTAL row for Top 10 Stores
+                            total_row_top = 4 + len(top10_stores_ex)
+                            ws6.write(total_row_top, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(top10_stores_ex.columns):
+                                val = top10_stores_ex[col_tuple].sum()
+                                ws6.write_number(total_row_top, 1 + c_idx, val, total_num_fmt)
+                                
+                            # --- RENDER BOTTOM 10 CHRONOLOGICAL TIMELINE ---
+                            start_btm_store_row = total_row_top + 3
+                            ws6.write(start_btm_store_row, 0, "📉 BOTTOM 10 STORES BY PROFIT", title_fmt)
+                            bot10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=False, n=11)
+                            bot10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=start_btm_store_row + 2, index=True)
+                            
+                            # Format headers
+                            ws6.write(start_btm_store_row + 2, 0, "Store Name", header_base)
+                            ws6.write(start_btm_store_row + 3, 0, "", header_base)
+                            for c_idx, col_tuple in enumerate(bot10_stores_ex.columns):
+                                excel_c = 1 + c_idx
+                                ws6.write(start_btm_store_row + 2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
+                                ws6.write(start_btm_store_row + 3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
+                                
+                            # FIX: Inject GRAND TOTAL row for Bottom 10 Stores
+                            total_row_btm = start_btm_store_row + 4 + len(bot10_stores_ex)
+                            ws6.write(total_row_btm, 0, "GRAND TOTAL", total_fmt)
+                            for c_idx, col_tuple in enumerate(bot10_stores_ex.columns):
+                                val = bot10_stores_ex[col_tuple].sum()
+                                ws6.write_number(total_row_btm, 1 + c_idx, val, total_num_fmt)
+                                
+                            # Global formatting widths for sheet columns
+                            ws6.set_column(0, 0, 35, cell_fmt)
+                            ws6.set_column(1, len(top10_stores_ex.columns) + 1, 14, num_fmt)
+                            
+                            df.to_excel(writer, sheet_name='Master Data Raw', index=False)
+                    
+
+                    # ----------------------------------------------------
+                    # FILE 2: BUILD UNMAPPED STORES & ITEMS REPORT
+                    # ----------------------------------------------------
+                    output_unmapped = io.BytesIO()
+                    with pd.ExcelWriter(output_unmapped, engine='xlsxwriter') as writer_unmapped:
+                        wb_un = writer_unmapped.book
+                        title_fmt_un = wb_un.add_format({'bold': True, 'font_size': 14, 'color': '#C00000'})
+                        header_un = wb_un.add_format({'bold': True, 'border': 1, 'bg_color': '#FCE4D6', 'align': 'center'})
+                        cell_un = wb_un.add_format({'border': 1})
+                        num_un = wb_un.add_format({'num_format': '#,##0.00', 'border': 1})
+
+                        # Tab 1: Unmapped Rows
+                        if not df_unmapped_raw.empty:
+                            df_unmapped_raw.to_excel(writer_unmapped, sheet_name='Unmapped Data Rows', index=False, startrow=2)
+                            ws_un1 = writer_unmapped.sheets['Unmapped Data Rows']
+                            ws_un1.write(0, 0, "⚠️ ALL UNMAPPED ENTRIES TRANSACTION LOG", title_fmt_un)
+                        else:
+                            # Fallback if empty
+                            empty_df = pd.DataFrame([["Perfect match! No unmapped items or stores found."]], columns=["Status"])
+                            empty_df.to_excel(writer_unmapped, sheet_name='Unmapped Data Rows', index=False)
+
+                    excel_data_clean = output_clean.getvalue()
+                    excel_data_unmapped = output_unmapped.getvalue()
+
+                    # Render Download Buttons Side by Side
+                    col_d1, col_d2 = st.columns(2)
+                    with col_d1:
+                        st.download_button(
+                            label="📥 Download Clean Full Excel Report", 
+                            data=excel_data_clean, 
+                            file_name=f"Clean_Report_{sel_year}_{rpt}.xlsx", 
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    with col_d2:
+                        if not df_unmapped_raw.empty:
+                            st.download_button(
+                                label="⚠️ Download Unmapped Stores & Items Report", 
+                                data=excel_data_unmapped, 
+                                file_name=f"UNMAPPED_Log_{sel_year}_{rpt}.xlsx", 
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        else:
+                            st.button("✅ No Unmapped Data Found", disabled=True)
+
+                    c1, c2 = st.columns([3, 1])
+    elif app_mode == "🗄️ Saved Reports":
+        if urls['h']:
+            reps = get_saved_reports(urls['h'])
+            if reps:
+                sel = st.selectbox("Select Report:", reps)
+                if sel:
+                    loaded_data = {}
+                    sheet_tabs = ["StoreQty", "StoreVal", "ItemQty", "ItemVal", "Top10", "Master"]
+                    with st.spinner("Downloading Report Data..."):
+                        try:
+                            client = get_gspread_client()
+                            sh = client.open_by_url(urls['h'])
+                            for tab_name in sheet_tabs:
+                                try:
+                                    full_data = sh.worksheet(f"Rep_{sel}_{tab_name}").get_all_values()
+                                    if full_data:
+                                        header = full_data[0]
+                                        rows = full_data[1:]
+                                        loaded_data[tab_name] = pd.DataFrame(rows, columns=header)
+                                    else: loaded_data[tab_name] = pd.DataFrame()
+                                except: loaded_data[tab_name] = pd.DataFrame()
+                        except Exception as e:
+                            st.error(f"Connection Error: {e}")
+                            st.stop()
+
+                    if loaded_data:
+                        t1, t2, t3, t4, t5, t6 = st.tabs(["📦 Store Qty", "💰 Store Val", "📦 Item Qty", "💰 Item Val", "🏆 Top 10", "📝 Master Data"])
+                        with t1: st.dataframe(loaded_data.get("StoreQty", pd.DataFrame()), use_container_width=True)
+                        with t2: st.dataframe(loaded_data.get("StoreVal", pd.DataFrame()), use_container_width=True)
+                        with t3: st.dataframe(loaded_data.get("ItemQty", pd.DataFrame()), use_container_width=True)
+                        with t4: st.dataframe(loaded_data.get("ItemVal", pd.DataFrame()), use_container_width=True)
+                        with t5: 
+                            df_top = loaded_data.get("Top10", pd.DataFrame())
+                            st.dataframe(df_top, use_container_width=True)
+                            if not df_top.empty and 'Total Sales' in df_top.columns:
+                                try:
+                                    df_top['Total Sales'] = pd.to_numeric(df_top['Total Sales'], errors='coerce')
+                                    st.bar_chart(df_top.set_index(df_top.columns[0])['Total Sales'])
+                                except: pass
+                        with t6: st.dataframe(loaded_data.get("Master", pd.DataFrame()), use_container_width=True)
