@@ -259,20 +259,20 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     nav_to_article_map = {} 
 
     if report_type =="AEON" or report_type == "AEON DF":
-        db_cols = {'Article': ['ITEM CODE', 'ITEMCODE'], 'NAV': ['NAV code', 'NAV_CODE', 'No.'], 'ArtDesc': ['NAV Description', 'Description'], 'NavDesc': ['Aeon Item code', 'ArticleDesc'],'UOM': ['UOM PKT/KG (NAV)', 'UOM']}
+        db_cols = {'Article': ['ITEM CODE', 'ITEMCODE'], 'NAV': ['NAV code', 'NAV_CODE', 'No.'], 'ArtDesc': ['NAV Description', 'Description'], 'NavDesc': ['Aeon Item code', 'ArticleDesc'],'UOM': ['UOM PKT/KG (NAV)']}
         # AEON Sales now scans for STORE CODE instead of name
         sales_cols ={'Article': ['Article', 'ITEM CODE'], 'Qty': ['SALES QTY','QTY','SALESQTY','Billed Quantity'], 'Val': ['TOTAL SALES','SALESAMOUNT','Total Amount'], 'Store': ['STORE CODE'], 'Date': ['SELLING DATE'], 'Name': ['ITEM DESCRIPTION']}
         # AEON Dist now scans for Transfer-to Code
-        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Transfer-to Code'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
+        dist_cols = {'NAV': ['No.', 'M Code'],'UsoftCode':['USOFT-CODE'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Transfer-to Code'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
         # AEON Waste now scans for CNO
         waste_cols = {'NAV': ['NAV', 'NAV_CODE'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['CNO'], 'Val': ['Amount', 'TOT_AMT'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
 
     elif report_type =="TFP" or report_type =="TFP DF":
         db_cols = {'Article': ['CODE SKU', 'cno_sku'], 'NAV': ['NAV CODE', 'id'], 'ArtDesc': ['Description', 'name1'], 'NavDesc': ['Item No/SKU', 'name2'], 'UOM': ['UOM']}
         # Sales looks for Location (to extract BBT)
-        sales_cols = {'Article': ['SKU NO', '1st Column'], 'Qty': ['Qty Sold', 'Quantity'], 'Val': ['Net Excl Tax', 'Amount'], 'Store': ['Location'], 'Date': ['Sales Date', 'TRXDATE'], 'Name': ['Item']}
+        sales_cols = {'Article': ['SKU NO'], 'Qty': ['Qty Sold'], 'Val': ['Net Excl Tax'], 'Store': ['Location'], 'Date': ['Sales Date', 'TRXDATE'], 'Name': ['Item']}
         # Dist looks for Location Code or Transfer-to Code (to extract 3003)
-        dist_cols = {'NAV': ['No.', 'M Code'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Transfer-to Code'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
+        dist_cols = {'NAV': ['No.', 'M Code'],'UsoftCode':['USOFT-CODE'], 'Qty': ['Quantity', 'QTY'], 'Store': ['Transfer-to Code'], 'UOM': ['Unit of Measure Code'], 'Name': ['USOFT product description'], 'Cost': ['Price','COST','Unit Price'], 'Date': ['Posting Date'], 'Chain': ['Your Reference主key']}
         # Waste looks for CNO (to extract 3012)
         waste_cols = {'NAV': ['NAV_CODE', 'NAV'], 'Qty': ['QTY', 'Quantity'], 'Weight': ['WEIGHT'], 'Store': ['CNO'], 'Val': ['TOT_AMT', 'Amount'], 'Date': ['DATE', 'Date'], 'Chain': ['MAIN_CODE']}
     
@@ -317,11 +317,13 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
     uom_mapping = {}
     if 'UOM' in df_db.columns:
         uom_mapping = df_db.set_index('NAV')['UOM'].to_dict()
+        article_uom_map = df_db.drop_duplicates('Article').set_index('Article')['UOM'].to_dict()
     
     # --- DUAL-DICTIONARY LOCATION BUILDER ---
     loc_map_aeon_sales = {}
     loc_map_tfp_sales = {}
     loc_map_nav = {}
+    loc_code_to_nav_code = {}
 
     if report_type in ["AEON", "AEON DF", "TFP", "TFP DF"] and df_loc_raw is not None:
         if "AEON" in report_type:
@@ -340,16 +342,37 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
             for _, row in df_loc.iterrows():
                 nav_loc = str(row['NavLoc']).strip()
                 
+                # if "AEON" in report_type:
+                #     ac = str(row.get('AeonCode', '')).replace('.0', '').strip()
+                #     nc = str(row.get('NavCode', '')).replace('.0', '').strip()
+                #     if ac and ac not in ["NAN", "NONE", ""]: loc_map_aeon_sales[ac] = nav_loc
+                #     if nc and nc not in ["NAN", "NONE", ""]: loc_map_nav[nc] = nav_loc
+                # else:
+                #     tc = str(row.get('TfpLoc', '')).strip().upper()
+                #     nc = str(row.get('TfpCode', '')).replace('.0', '').strip()
+                #     if tc and tc not in ["NAN", "NONE", ""]: loc_map_tfp_sales[tc] = nav_loc
+                #     if nc and nc not in ["NAN", "NONE", ""]: loc_map_nav[nc] = nav_loc
+
                 if "AEON" in report_type:
                     ac = str(row.get('AeonCode', '')).replace('.0', '').strip()
                     nc = str(row.get('NavCode', '')).replace('.0', '').strip()
-                    if ac and ac not in ["NAN", "NONE", ""]: loc_map_aeon_sales[ac] = nav_loc
-                    if nc and nc not in ["NAN", "NONE", ""]: loc_map_nav[nc] = nav_loc
+                    if ac and ac not in ["NAN", "NONE", ""]: 
+                        loc_map_aeon_sales[ac] = nav_loc
+                        loc_code_to_nav_code[ac] = nc
+                    if nc and nc not in ["NAN", "NONE", ""]: 
+                        loc_map_nav[nc] = nav_loc
+                        loc_code_to_nav_code[nc] = nc
                 else:
                     tc = str(row.get('TfpLoc', '')).strip().upper()
                     nc = str(row.get('TfpCode', '')).replace('.0', '').strip()
-                    if tc and tc not in ["NAN", "NONE", ""]: loc_map_tfp_sales[tc] = nav_loc
-                    if nc and nc not in ["NAN", "NONE", ""]: loc_map_nav[nc] = nav_loc
+                    if tc and tc not in ["NAN", "NONE", ""]: 
+                        loc_map_tfp_sales[tc] = nav_loc
+                        loc_code_to_nav_code[tc] = nc
+                    if nc and nc not in ["NAN", "NONE", ""]: 
+                        loc_map_nav[nc] = nav_loc
+                        loc_code_to_nav_code[nc] = nc
+
+        
     
     rsp_mapping = {}  
     if (report_type == "AEON" or report_type == "AEON DF") and df_uom_raw is not None:
@@ -430,27 +453,58 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
      
     # APPLY STORE MAPPINGS
     if "AEON" in report_type:
+        def get_aeon_nav_code(x):
+            code = str(x).replace('.0', '').strip()
+            raw_code = loc_code_to_nav_code.get(code, code)
+            if raw_code and raw_code != "N/A" and not raw_code.startswith("HC"):
+                return f"HC000020-{raw_code}"
+            return raw_code
+
         def map_aeon_sales(x):
             code = str(x).replace('.0', '').strip()
             if code == "" or code == "0": return "UNKNOWN"
             return loc_map_aeon_sales.get(code, f"UNMAPPED - {code}")
+
+        df_sales['Nav_Loc_Code'] = df_sales['Store'].apply(get_aeon_nav_code)
         df_sales['Store'] = df_sales['Store'].apply(map_aeon_sales)
+
     elif "TFP" in report_type:
+        def get_tfp_nav_code(x):
+            code = str(x).split('-')[0].strip().upper()
+            raw_code = loc_code_to_nav_code.get(code, code)
+            if raw_code and raw_code != "N/A" and not raw_code.startswith("HC"):
+                return f"HC001500-{raw_code}"
+            return raw_code
+
         def map_tfp_sales(x):
-            # Split "BBT - BIG BATAI" and grab the first part "BBT"
             code = str(x).split('-')[0].strip().upper()
             if code == "" or code == "0": return "UNKNOWN"
             return loc_map_tfp_sales.get(code, f"UNMAPPED - {code}")
-        df_sales['Store'] = df_sales['Store'].apply(map_tfp_sales)
 
-    df_sales['Qty'] = df_sales['Qty'].apply(clean_currency)
+        df_sales['Nav_Loc_Code'] = df_sales['Store'].apply(get_tfp_nav_code)
+        df_sales['Store'] = df_sales['Store'].apply(map_tfp_sales)
+    else:
+        df_sales['Nav_Loc_Code'] = df_sales['Store'].astype(str)
+
+
+    df_sales['Raw_Qty'] = df_sales['Qty'].apply(clean_currency)
+    df_sales['Raw_Val'] = df_sales['Val'].apply(clean_currency)
+    
+    df_sales['Qty'] = df_sales['Raw_Qty'].copy()
+    df_sales['Val'] = df_sales['Raw_Val'].copy()
+
     if report_type == 'AEON':
-        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.77
-    elif report_type =='AEON DF':
-        df_sales['Val'] = df_sales['Val'].apply(clean_currency)*0.8
-    elif report_type in ['TFP','TFP DF']:
-        df_sales['Val'] =df_sales['Val'].apply(clean_currency)*0.75
-    # df_sales['Val'] = df_sales['Val'].apply(clean_currency)
+        df_sales['Val'] = df_sales['Raw_Val'] * 0.77
+    elif report_type == 'AEON DF':
+        df_sales['Val'] = df_sales['Raw_Val'] * 0.8
+    elif report_type in ['TFP', 'TFP DF']:
+        df_sales['Val'] = df_sales['Raw_Val'] * 0.75
+    elif report_type == 'JG':
+        df_sales['Val'] = df_sales['Raw_Val'] * 0.75
+    elif report_type == "JG DF":
+        df_sales['Val'] = df_sales['Raw_Val'] * 0.8
+    # else:
+    #     df_sales['Val'] = df_sales['Raw_Val'].copy()
     
     if report_type in ['AEON', 'AEON DF', 'TFP', 'TFP DF']:
         df_sales['UOM_Str'] = df_sales['NAV'].map(uom_mapping).fillna('KG')
@@ -590,7 +644,50 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         df_dist['Qty'] = raw_qty * uom_factor 
         cost = df_dist['Cost'].apply(clean_currency) if 'Cost' in df_dist.columns else 0
         df_dist['Val'] = df_dist['Qty_1'] * (cost/2)
+
+    nav_uom_to_usoft_map = {}
+    nav_to_usoft_map = {}
+
+    if 'UsoftCode' in df_dist.columns and 'NAV' in df_dist.columns:
+        valid_u = df_dist[~df_dist['UsoftCode'].astype(str).str.upper().isin(["", "0", "NAN", "NONE"])].copy()
         
+        for _, r in valid_u.iterrows():
+            nav_k = str(r['NAV']).strip()
+            uom_k = str(r.get('UOM', '')).strip().upper()
+            u_code = str(r['UsoftCode']).strip()
+            
+            if nav_k and u_code:
+                if uom_k:
+                    nav_uom_to_usoft_map[(nav_k, uom_k)] = u_code
+                if nav_k not in nav_to_usoft_map:
+                    nav_to_usoft_map[nav_k] = u_code
+
+    # Helper function to match Usoft Code with smart EA suffix fallback
+    def assign_usoft_code(row):
+        nav_id = str(row.get('NAV', '')).strip()
+        art_id = str(row.get('Article', '')).strip()
+        
+        item_uom = str(article_uom_map.get(art_id, '')).strip().upper()
+        if not item_uom or item_uom == 'NAN':
+            item_uom = str(row.get('UOM_Str', '')).strip().upper()
+
+        # 1. Primary Exact Match by (NAV Code, UOM)
+        if (nav_id, item_uom) in nav_uom_to_usoft_map:
+            return nav_uom_to_usoft_map[(nav_id, item_uom)]
+        
+        # 2. Secondary Match by NAV Code alone from distribution data
+        if nav_id in nav_to_usoft_map:
+            return nav_to_usoft_map[nav_id]
+
+        # 3. Smart Fallback for EA items: Automatically format as NAV-EA (e.g., 5000088-EA)
+        if item_uom == "EA" or not item_uom or item_uom == "NAN":
+            if nav_id and nav_id != "0":
+                return f"{nav_id}-EA"
+
+        return "N/A"
+
+    if 'NAV' in df_sales.columns:
+        df_sales['Usoft_Code'] = df_sales.apply(assign_usoft_code, axis=1)
     
 
     # --- D. WASTAGE ---
@@ -663,7 +760,7 @@ def process_data(df_sales_raw, df_db_raw, df_dist_raw, df_waste_raw, report_type
         "Waste": get_max_date(df_waste)
     }
 
-    return df_sales, df_dist, df_waste, master_name_map, nav_to_article_map, [], update_info
+    return df_sales, df_dist, df_waste, master_name_map, nav_to_article_map, article_uom_map, update_info, df_dist2
 
 # --- 4. MAIN APP LOGIC ---
 def main_app_interface(authenticator, name, permissions):
@@ -730,7 +827,7 @@ def main_app_interface(authenticator, name, permissions):
                 st.rerun()
         
         st.markdown("---")
-        app_mode = st.radio("Mode:", ["📡 Live Analysis", "🗄️ Saved Reports"])
+        app_mode = st.radio("Mode:", ["📡 Live Analysis", "📥 Standardized Sales Export"])
     
     if st.session_state['urls'] is None:
         st.info("👈 Please select a Report System from the sidebar to begin.")
@@ -761,7 +858,15 @@ def main_app_interface(authenticator, name, permissions):
             if r_s is not None and r_d is not None:
                 res = process_data(r_s, r_db, r_d, r_w, rpt, r_uom, r_d2, r_loc)
                 if res:
-                    df_s, df_d, df_w, map_name, map_art, _, update_info = res
+                    df_s, df_d, df_w, map_name, map_art, _, update_info, df_dist2 = res
+
+                    # Check ledger status dynamically for the caption
+                    ledger_status = "N/A"
+                    if df_dist2 is not None and not df_dist2.empty:
+                        if 'Date' in df_dist2.columns and not df_dist2['Date'].dropna().empty:
+                            ledger_status = df_dist2['Date'].max().strftime('%d %b %Y')
+                        else:
+                            ledger_status = f"Loaded ({len(df_dist2):,} rows)"
                     
                     if not df_s.empty: df_s = df_s[df_s['Store'] != "UNKNOWN"]
                     if not df_d.empty: df_d = df_d[df_d['Store'] != "UNKNOWN"]
@@ -775,8 +880,8 @@ def main_app_interface(authenticator, name, permissions):
                         st.warning(f"🔒 View restricted to assigned stores.")
 
                     st.caption(f"""
-                    **Last Data Updates:** 🛒 Sales: **{update_info['Sales']}** | 🚚 Dist: **{update_info['Dist']}** | 📝 Ledger: **{update_info.get('Dist2', 'N/A')}** | 🗑️ Waste: **{update_info['Waste']}**
-                    """)
+                **Last Data Updates:** 🛒 Sales: **{update_info['Sales']}** | 🚚 Dist: **{update_info['Dist']}** | 📝 Ledger: **{ledger_status}** | 🗑️ Waste: **{update_info['Waste']}**
+                """)
                     
                     # --- NEW UNMAPPED STORE ALERT ---
                     # unmapped_stores = set()
@@ -846,9 +951,13 @@ def main_app_interface(authenticator, name, permissions):
                     mask_unknown = df['Item_Name'] == "Unknown Item"
                     df.loc[mask_unknown, 'Item_Name'] = "Item " + df.loc[mask_unknown, 'NAV'].astype(str)
                     if rpt == 'AEON' or rpt == 'TFP':
-                        df = df[~df['Item_Name'].astype(str).str.upper().str.startswith(('SN ','SNBG ','SIMPLY '))]
+                        mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ', 'SIMPLY '))
+                        mask_is_egg = df['Item_Name'].astype(str).str.upper().str.contains('SELENIUM EGG MYS PAPER TRAY', na=False)
+    
+                        # Exclude all SN/Dry items EXCEPT Selenium Egg
+                        df = df[~mask_is_sn | mask_is_egg]
                     elif rpt == 'AEON DF' or rpt == 'TFP DF':
-                        mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ','SIMPLY NATURAL ','ZENXIN ORGANIC ROLLED OATS (TWIN PACK)','ZENXIN ORG EXTRA VIRGIN OIL 500ML'))
+                        mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ','SIMPLY NATURAL ','ZENXIN ORGANIC ROLLED OATS (TWIN PACK)','ZENXIN ORG EXTRA VIRGIN OIL 500ML','ZENXIN ORGANIC ROLLED OATS'))
                         mask_not_egg = ~df['Item_Name'].astype(str).str.upper().str.contains('SELENIUM EGG MYS PAPER TRAY', na=False)
                         df = df[mask_is_sn & mask_not_egg]
                     
@@ -1071,31 +1180,83 @@ def main_app_interface(authenticator, name, permissions):
 
                     # Regenerate summaries exclusively for the Clean Excel Report
                     def create_hierarchical_qty(df_source, primary_col, secondary_col, time_col):
-                        # 1. Master Rows (Store Totals)
+                        # 1. Dynamically find the last month or week available in the data
+                        month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        if time_col == "Month":
+                            available_periods = [m for m in month_order if m in df_source[time_col].unique()]
+                            last_period = available_periods[-1] if available_periods else df_source[time_col].max()
+                        else:
+                            last_period = sorted(df_source[time_col].astype(str).unique())[-1] if df_source[time_col].nunique() > 0 else df_source[time_col].max()
+
+                        # 2. Extract sorting order based on last period's Sales Volume
+                        df_last = df_source[df_source[time_col] == last_period]
+                        if df_last.empty: df_last = df_source
+                        
+                        p_totals = df_last.groupby(primary_col)['Sales_Qty'].sum().to_dict()
+                        c_totals = df_last.groupby([primary_col, secondary_col])['Sales_Qty'].sum().to_dict()
+
+                        # 3. Build total lines
                         p = df_source.groupby([primary_col, time_col])[qty_display_list].sum()
                         p['STR%'] = (p['Sales_Qty'] / p['Dist_Qty'].replace(0, 1) * 100).replace([np.inf, -np.inf], 0).fillna(0).round(0)
                         p = p.reset_index()
-                        p['Detail'] = " SUMMARY" # Space forces it to sort to the top
+                        p['Detail'] = " SUMMARY" 
                         
-                        # 2. Detail Rows (Items inside Store)
+                        # 4. Build sub-item line items
                         c = df_source.groupby([primary_col, secondary_col, time_col])[qty_display_list].sum()
                         c['STR%'] = (c['Sales_Qty'] / c['Dist_Qty'].replace(0, 1) * 100).replace([np.inf, -np.inf], 0).fillna(0).round(0)
                         c = c.reset_index().rename(columns={secondary_col: 'Detail'})
                         
-                        # 3. Combine and Pivot (Keep as MultiIndex for precise grouping later)
+                        # 5. Merge and Unstack
                         combined = pd.concat([p, c]).set_index([primary_col, 'Detail', time_col])
-                        unstacked = combined.unstack(level=2).fillna(0).sort_index(level=[0, 1])
-                        return unstacked
+                        unstacked = combined.unstack(level=2).fillna(0)
+
+                        # 6. Rebuild sorting structure
+                        sort_df = pd.DataFrame(index=unstacked.index).reset_index()
+                        sort_df['p_rank'] = sort_df[primary_col].map(p_totals).fillna(-999999)
+                        sort_df['is_summary'] = np.where(sort_df['Detail'] == " SUMMARY", 1, 0)
+                        sort_df['c_rank'] = sort_df.apply(lambda r: c_totals.get((r[primary_col], r['Detail']), -999999) if r['Detail'] != " SUMMARY" else float('inf'), axis=1)
+                        
+                        # CRITICAL FIX: Added 'primary_col' to the sorting order to keep parent-child blocks bundled together securely
+                        sort_df = sort_df.sort_values(by=['p_rank', primary_col, 'is_summary', 'c_rank'], ascending=[False, True, False, False])
+                        new_index = pd.MultiIndex.from_frame(sort_df[[primary_col, 'Detail']])
+                        
+                        return unstacked.reindex(new_index)
 
                     def create_hierarchical_val(df_source, primary_col, secondary_col, time_col):
+                        # 1. Dynamically find the last month or week available in the data
+                        month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        if time_col == "Month":
+                            available_periods = [m for m in month_order if m in df_source[time_col].unique()]
+                            last_period = available_periods[-1] if available_periods else df_source[time_col].max()
+                        else:
+                            last_period = sorted(df_source[time_col].astype(str).unique())[-1] if df_source[time_col].nunique() > 0 else df_source[time_col].max()
+
+                        # 2. Extract sorting order based on last period's Profit
+                        df_last = df_source[df_source[time_col] == last_period]
+                        if df_last.empty: df_last = df_source
+                        
+                        p_totals = df_last.groupby(primary_col)['Profit'].sum().to_dict()
+                        c_totals = df_last.groupby([primary_col, secondary_col])['Profit'].sum().to_dict()
+
                         p = df_source.groupby([primary_col, time_col])[val_display_list].sum().reset_index()
                         p['Detail'] = " SUMMARY"
                         
                         c = df_source.groupby([primary_col, secondary_col, time_col])[val_display_list].sum().reset_index().rename(columns={secondary_col: 'Detail'})
                         
                         combined = pd.concat([p, c]).set_index([primary_col, 'Detail', time_col])
-                        unstacked = combined.unstack(level=2).fillna(0).sort_index(level=[0, 1])
-                        return unstacked
+                        unstacked = combined.unstack(level=2).fillna(0)
+
+                        # Rebuild sorting structure
+                        sort_df = pd.DataFrame(index=unstacked.index).reset_index()
+                        sort_df['p_rank'] = sort_df[primary_col].map(p_totals).fillna(-999999)
+                        sort_df['is_summary'] = np.where(sort_df['Detail'] == " SUMMARY", 1, 0)
+                        sort_df['c_rank'] = sort_df.apply(lambda r: c_totals.get((r[primary_col], r['Detail']), -999999) if r['Detail'] != " SUMMARY" else float('inf'), axis=1)
+                        
+                        # CRITICAL FIX: Added 'primary_col' to the sorting order to keep parent-child blocks bundled together securely
+                        sort_df = sort_df.sort_values(by=['p_rank', primary_col, 'is_summary', 'c_rank'], ascending=[False, True, False, False])
+                        new_index = pd.MultiIndex.from_frame(sort_df[[primary_col, 'Detail']])
+                        
+                        return unstacked.reindex(new_index)
 
                     qty_pivot = create_hierarchical_qty(df_clean, 'Store', 'Item_Name', group_col)
                     val_pivot = create_hierarchical_val(df_clean, 'Store', 'Item_Name', group_col)
@@ -1274,19 +1435,18 @@ def main_app_interface(authenticator, name, permissions):
 
                         if not df_clean.empty:
                             ws5 = workbook.add_worksheet('TOP&BTM 10')
-                            
-                            # Filter out unassigned item strings from raw clean records first
                             valid_items_df = df_clean[(~df_clean['Item_Name'].str.startswith('Item ', na=False)) & (df_clean['Item_Name'] != 'Unknown Item')]
                             
-                            # Generate dynamic 2D multi-index timeline rank tables matching active group_col tokens
-                            top10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=True, n=11)
-                            bottom10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=False, n=11)
+                            top10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=True, n=10)
                             
-                            # --- 1. RENDER TOP 10 CHRONOLOGICAL TIMELINE ---
+                            # FIX: Enforce descending sort for the Bottom 10 items pivot table
+                            bottom10_df = get_rank_table(valid_items_df, group_col, sort_by='Profit', top=False, n=10)
+                            bottom10_df = bottom10_df.sort_values(by=('Profit', 'TOTAL'), ascending=False)
+                            
+                            # --- 1. RENDER TOP 10 ---
                             ws5.write(0, 0, "🏆 TOP 10 ITEMS BY PROFIT", title_fmt)
                             top10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=2, index=True)
                             
-                            # Color headers to match standard layout sheets
                             ws5.write(2, 0, "Item Name", header_base)
                             ws5.write(3, 0, "", header_base)
                             for c_idx, col_tuple in enumerate(top10_df.columns):
@@ -1294,14 +1454,13 @@ def main_app_interface(authenticator, name, permissions):
                                 ws5.write(2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
                                 ws5.write(3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
                                 
-                            # Write grand summary bottom row
                             total_row_top = 4 + len(top10_df)
                             ws5.write(total_row_top, 0, "GRAND TOTAL", total_fmt)
                             for c_idx, col_tuple in enumerate(top10_df.columns):
                                 val = top10_df[col_tuple].sum()
                                 ws5.write_number(total_row_top, 1 + c_idx, val, total_num_fmt)
                                 
-                            # --- 2. RENDER BOTTOM 10 CHRONOLOGICAL TIMELINE ---
+                            # --- 2. RENDER BOTTOM 10 (NOW SORTED DESCENDING) ---
                             start_btm_row = total_row_top + 3
                             ws5.write(start_btm_row, 0, "📉 BOTTOM 10 ITEMS BY PROFIT", title_fmt)
                             bottom10_df.to_excel(writer, sheet_name='TOP&BTM 10', startrow=start_btm_row + 2, index=True)
@@ -1319,17 +1478,15 @@ def main_app_interface(authenticator, name, permissions):
                                 val = bottom10_df[col_tuple].sum()
                                 ws5.write_number(total_row_btm, 1 + c_idx, val, total_num_fmt)
                                 
-                            # Global formatting widths for sheet columns
                             ws5.set_column(0, 0, 40, cell_fmt)
                             ws5.set_column(1, len(top10_df.columns) + 1, 14, num_fmt)
                             
                             ws6 = workbook.add_worksheet('STORE RANKS')
                             ws6.write(0, 0, "🏆 TOP 10 STORES BY PROFIT", title_fmt)
                             
-                            top10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=True, n=11)
+                            top10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=True, n=10)
                             top10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=2, index=True)
                             
-                            # Format headers
                             ws6.write(2, 0, "Store Name", header_base)
                             ws6.write(3, 0, "", header_base)
                             for c_idx, col_tuple in enumerate(top10_stores_ex.columns):
@@ -1337,20 +1494,19 @@ def main_app_interface(authenticator, name, permissions):
                                 ws6.write(2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
                                 ws6.write(3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
                                 
-                            # FIX: Inject GRAND TOTAL row for Top 10 Stores
-                            total_row_top = 4 + len(top10_stores_ex)
-                            ws6.write(total_row_top, 0, "GRAND TOTAL", total_fmt)
+                            total_store_row_top = 4 + len(top10_stores_ex)
+                            ws6.write(total_store_row_top, 0, "GRAND TOTAL", total_fmt)
                             for c_idx, col_tuple in enumerate(top10_stores_ex.columns):
                                 val = top10_stores_ex[col_tuple].sum()
-                                ws6.write_number(total_row_top, 1 + c_idx, val, total_num_fmt)
+                                ws6.write_number(total_store_row_top, 1 + c_idx, val, total_num_fmt)
                                 
-                            # --- RENDER BOTTOM 10 CHRONOLOGICAL TIMELINE ---
-                            start_btm_store_row = total_row_top + 3
+                            # FIX: Enforce descending sort for the Bottom 10 stores pivot table
+                            start_btm_store_row = total_store_row_top + 3
                             ws6.write(start_btm_store_row, 0, "📉 BOTTOM 10 STORES BY PROFIT", title_fmt)
-                            bot10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=False, n=11)
+                            bot10_stores_ex = get_store_rank_table(df_clean, group_col, sort_by='Profit', top=False, n=10)
+                            bot10_stores_ex = bot10_stores_ex.sort_values(by=('Profit', 'TOTAL'), ascending=False)
                             bot10_stores_ex.to_excel(writer, sheet_name='STORE RANKS', startrow=start_btm_store_row + 2, index=True)
                             
-                            # Format headers
                             ws6.write(start_btm_store_row + 2, 0, "Store Name", header_base)
                             ws6.write(start_btm_store_row + 3, 0, "", header_base)
                             for c_idx, col_tuple in enumerate(bot10_stores_ex.columns):
@@ -1358,17 +1514,14 @@ def main_app_interface(authenticator, name, permissions):
                                 ws6.write(start_btm_store_row + 2, excel_c, str(col_tuple[0]), get_fmt(col_tuple[0]))
                                 ws6.write(start_btm_store_row + 3, excel_c, str(col_tuple[1]), get_fmt(col_tuple[0]))
                                 
-                            # FIX: Inject GRAND TOTAL row for Bottom 10 Stores
-                            total_row_btm = start_btm_store_row + 4 + len(bot10_stores_ex)
-                            ws6.write(total_row_btm, 0, "GRAND TOTAL", total_fmt)
+                            total_store_row_btm = start_btm_store_row + 4 + len(bot10_stores_ex)
+                            ws6.write(total_store_row_btm, 0, "GRAND TOTAL", total_fmt)
                             for c_idx, col_tuple in enumerate(bot10_stores_ex.columns):
                                 val = bot10_stores_ex[col_tuple].sum()
-                                ws6.write_number(total_row_btm, 1 + c_idx, val, total_num_fmt)
+                                ws6.write_number(total_store_row_btm, 1 + c_idx, val, total_num_fmt)
                                 
-                            # Global formatting widths for sheet columns
                             ws6.set_column(0, 0, 35, cell_fmt)
                             ws6.set_column(1, len(top10_stores_ex.columns) + 1, 14, num_fmt)
-                            
                             df.to_excel(writer, sheet_name='Master Data Raw', index=False)
                     
 
@@ -1417,6 +1570,174 @@ def main_app_interface(authenticator, name, permissions):
                             st.button("✅ No Unmapped Data Found", disabled=True)
 
                     c1, c2 = st.columns([3, 1])
+    elif app_mode == "📥 Standardized Sales Export":
+        st.subheader(f"📥 Raw Sales Transactions Export — {rpt}")
+
+        # 1. Load active URLs directly (Single unified Sales and DB sheets)
+        url_sales = urls['s']
+        url_db = urls['db'] if 'db' in urls else None
+        url_dist = urls['d']
+        url_dist2 = urls.get('d2')
+
+        r_s = load_google_sheet(url_sales)
+        r_db = load_google_sheet(url_db) if url_db else None
+        r_d = load_google_sheet(url_dist) if url_dist else None
+        r_d2 = load_google_sheet(url_dist2) if url_dist2 else None
+        r_uom = load_google_sheet(url_db, "UOM") if ("AEON" in rpt and url_db) else None
+        
+        if "AEON" in rpt and url_db: r_loc = load_google_sheet(url_db, "Loc")
+        elif "TFP" in rpt and url_db: r_loc = load_google_sheet(url_db, "3 - DATABASE LOCATION")
+        else: r_loc = None
+        r_w = None if rpt in ["CS_DRY", "SS_DRY"] else load_google_sheet(urls['w'])
+
+        with st.spinner(f"Fetching sales transactions for {rpt}..."):
+            if r_s is not None and r_d is not None:
+                res = process_data(r_s, r_db, r_d, r_w, rpt, r_uom, r_d2, r_loc)
+                if res:
+                    # FIX: Unpack 8 elements returned by process_data
+                    df_s, _, _, map_name, _, map_uom, _, _ = res
+                    
+                    if df_s.empty:
+                        st.warning("No sales transactions found.")
+                        return
+
+                    df_s = df_s[df_s['Store'] != "UNKNOWN"].copy()
+                    df_s['Date'] = pd.to_datetime(df_s['Date'], errors='coerce')
+                    df_s = df_s.dropna(subset=['Date'])
+
+                    if df_s.empty:
+                        st.warning("No valid dated sales records found.")
+                        return
+
+                    # 2. Categorize items accurately from the single combined sheet using item description
+                    def get_item_category(row):
+                        nav_code = str(row.get('NAV', '')).strip()
+                        desc = str(map_name.get(nav_code, row.get('Name', ''))).upper()
+
+                        # Exception rule: Selenium Egg belongs to Vege category
+                        if 'SELENIUM EGG MYS PAPER TRAY' in desc:
+                            return "Vege"
+
+                        dry_prefixes = ('SN ', 'SNBG ', 'SIMPLY ', 'SIMPLY NATURAL ', 'ZENXIN ORGANIC ROLLED OATS', 'ZENXIN ORG EXTRA VIRGIN')
+                        if desc.startswith(dry_prefixes):
+                            return "Dry"
+
+                        return "Vege"
+
+                    df_s['Category'] = df_s.apply(get_item_category, axis=1)
+
+                    # 3. Category Filter Options
+                    category_choice = st.radio(
+                        "Select Category Filter:",
+                        ["🟢 Combined (Vege + Dry)", "🥬 Vegetable (Vege)", "📦 Dry Goods (Dry)"],
+                        horizontal=True
+                    )
+
+                    if category_choice == "🥬 Vegetable (Vege)":
+                        df_s = df_s[df_s['Category'] == 'Vege']
+                    elif category_choice == "📦 Dry Goods (Dry)":
+                        df_s = df_s[df_s['Category'] == 'Dry']
+
+                    if df_s.empty:
+                        st.warning("No transactions found for the selected category filter.")
+                        return
+
+                    # 4. Date Range Picker
+                    min_d = df_s['Date'].min().date()
+                    max_d = df_s['Date'].max().date()
+
+                    st.markdown("### 📅 Select Date Range")
+                    col_d1, col_d2 = st.columns(2)
+                    with col_d1:
+                        from_date = st.date_input("From Date", value=min_d, min_value=min_d, max_value=max_d)
+                    with col_d2:
+                        to_date = st.date_input("To Date", value=max_d, min_value=min_d, max_value=max_d)
+
+                    if from_date > to_date:
+                        st.error("❌ 'From Date' cannot be after 'To Date'.")
+                        return
+
+                    mask = (df_s['Date'].dt.date >= from_date) & (df_s['Date'].dt.date <= to_date)
+                    df_filtered = df_s[mask].sort_values('Date', ascending=True).copy()
+
+                    if df_filtered.empty:
+                        st.warning("No sales transactions found in the selected date range.")
+                        return
+
+                    article_series = df_filtered['Article'] if 'Article' in df_filtered.columns else df_filtered['NAV']
+
+                    # 5. Format Nav Loc Code with store prefixes
+                    prefix_loc = "HC000020-" if "AEON" in rpt else ("HC001500-" if "TFP" in rpt else "")
+                    raw_loc_codes = df_filtered['Nav_Loc_Code'] if 'Nav_Loc_Code' in df_filtered.columns else "N/A"
+                    formatted_loc_codes = raw_loc_codes.astype(str).apply(
+                        lambda c: f"{prefix_loc}{c}" if (c and c != "N/A" and not c.startswith("HC")) else c
+                    )
+
+                    # 6. Construct Standardized Mapped Export DataFrame
+                    export_df = pd.DataFrame()
+                    export_df['Date'] = df_filtered['Date'].dt.strftime('%d/%m/%Y')
+                    export_df['Official Store Name'] = df_filtered['Store']
+                    export_df['Category'] = df_filtered['Category']
+                    export_df['Nav Loc Code'] = formatted_loc_codes
+                    export_df['Customer Item Code'] = article_series
+                    export_df['NAV Code'] = df_filtered['NAV']
+                    export_df['Usoft Code'] = df_filtered['Usoft_Code'] if 'Usoft_Code' in df_filtered.columns else "N/A"
+                    export_df['Item Description'] = df_filtered['NAV'].map(map_name).fillna(
+                        df_filtered['Name'] if 'Name' in df_filtered.columns else "Unknown Item"
+                    )
+                    export_df['UOM'] = article_series.astype(str).map(map_uom).fillna("PKT/KG")
+                    export_df['Sales Qty'] = df_filtered['Raw_Qty'] if 'Raw_Qty' in df_filtered.columns else df_filtered['Qty']
+                    export_df['Sales Amount ($)'] = df_filtered['Raw_Val'] if 'Raw_Val' in df_filtered.columns else df_filtered['Val']
+
+                    # Preview Table
+                    st.markdown(f"### 📋 Transactions Preview ({from_date.strftime('%d %b %Y')} - {to_date.strftime('%d %b %Y')})")
+                    st.dataframe(export_df, use_container_width=True, height=450)
+                    st.caption(f"Displaying **{len(export_df):,}** raw transaction rows.")
+
+                    # Build Excel File with Custom Styling
+                    excel_buffer = io.BytesIO()
+                    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                        wb = writer.book
+                        sheet_title = 'Sales Data'
+                        export_df.to_excel(writer, sheet_name=sheet_title, index=False, startrow=2)
+                        ws = writer.sheets[sheet_title]
+
+                        title_style = wb.add_format({'bold': True, 'font_size': 14, 'color': '#1F497D'})
+                        hdr_style = wb.add_format({'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#1F497D', 'font_color': 'white'})
+                        cell_style = wb.add_format({'border': 1, 'valign': 'vcenter'})
+                        num_style = wb.add_format({'num_format': '#,##0.00', 'border': 1, 'valign': 'vcenter'})
+                        tot_style = wb.add_format({'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+                        tot_num_style = wb.add_format({'num_format': '#,##0.00', 'bold': True, 'bg_color': '#D9D9D9', 'border': 1, 'valign': 'vcenter'})
+
+                        ws.write(0, 0, f"SALES TRANSACTIONS ({from_date.strftime('%d/%m/%Y')} - {to_date.strftime('%d/%m/%Y')}) - {rpt}", title_style)
+
+                        for c_idx, col in enumerate(export_df.columns):
+                            ws.write(2, c_idx, str(col), hdr_style)
+
+                        ws.set_column(0, 0, 14, cell_style)  # Date
+                        ws.set_column(1, 1, 35, cell_style)  # Official Store Name
+                        ws.set_column(2, 2, 12, cell_style)  # Category
+                        ws.set_column(3, 3, 18, cell_style)  # Nav Loc Code
+                        ws.set_column(4, 6, 18, cell_style)  # Codes
+                        ws.set_column(7, 7, 42, cell_style)  # Item Description
+                        ws.set_column(8, 8, 14, cell_style)  # UOM
+                        ws.set_column(9, 10, 18, num_style)  # Sales Qty & Val
+
+                        tot_row = len(export_df) + 3
+                        ws.write(tot_row, 0, "TOTAL", tot_style)
+                        for c in range(1, 9):
+                            ws.write(tot_row, c, "", tot_style)
+                        ws.write_number(tot_row, 9, export_df['Sales Qty'].sum(), tot_num_style)
+                        ws.write_number(tot_row, 10, export_df['Sales Amount ($)'].sum(), tot_num_style)
+
+                    # Download Button
+                    st.markdown("---")
+                    st.download_button(
+                        label=f"📥 Download Sales Excel ({from_date.strftime('%d%b')} - {to_date.strftime('%d%b%Y')})",
+                        data=excel_buffer.getvalue(),
+                        file_name=f"Sales_{rpt}_{from_date.strftime('%Y%m%d')}_to_{to_date.strftime('%Y%m%d')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
     elif app_mode == "🗄️ Saved Reports":
         if urls['h']:
             reps = get_saved_reports(urls['h'])
