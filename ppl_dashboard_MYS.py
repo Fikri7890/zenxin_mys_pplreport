@@ -781,6 +781,7 @@ def main_app_interface(authenticator, name, permissions):
             if can_view("AEON") and st.button("AEON Vege"):
                 st.session_state['report_type'] = "AEON"
                 st.session_state['urls'] = {
+                    'sa':make_url(st.secrets["sheet_ids"]["aeon_sales_1"]),
                     's': make_url(st.secrets["sheet_ids"]["aeon_sales"]),
                     'db': make_url(st.secrets["sheet_ids"]["aeon_db"]),
                     'd': make_url(st.secrets["sheet_ids"]["aeon_dist"]),
@@ -792,6 +793,7 @@ def main_app_interface(authenticator, name, permissions):
             if can_view("AEON") and st.button("AEON DF"):
                 st.session_state['report_type'] = "AEON DF"
                 st.session_state['urls'] = {
+                    'sa':make_url(st.secrets["sheet_ids"]["aeon_dry_sales_1"]),
                     's': make_url(st.secrets["sheet_ids"]["aeon_dry_sales"]),
                     'db': make_url(st.secrets["sheet_ids"]["aeon_dry_db"]),
                     'd': make_url(st.secrets["sheet_ids"]["aeon_dry_dist"]),
@@ -806,6 +808,7 @@ def main_app_interface(authenticator, name, permissions):
             if can_view("TFP") and st.button("TFP Vege"):
                 st.session_state['report_type'] = "TFP"
                 st.session_state['urls'] = { 
+                    'sa':make_url(st.secrets["sheet_ids"]["tfp_sales_1"]),
                     's': make_url(st.secrets["sheet_ids"]["tfp_sales"]),
                     'db': make_url(st.secrets["sheet_ids"]["tfp_db"]),
                     'd': make_url(st.secrets["sheet_ids"]["tfp_dist"]),
@@ -817,6 +820,7 @@ def main_app_interface(authenticator, name, permissions):
             if can_view("TFP") and st.button("TFP DF"):
                 st.session_state['report_type'] = "TFP DF"
                 st.session_state['urls'] = {
+                    'sa':make_url(st.secrets["sheet_ids"]["tfp_dry_sales_1"]),
                     's': make_url(st.secrets["sheet_ids"]["tfp_dry_sales"]),
                     'db': make_url(st.secrets["sheet_ids"]["tfp_dry_db"]),
                     'd': make_url(st.secrets["sheet_ids"]["tfp_dry_dist"]),
@@ -950,15 +954,35 @@ def main_app_interface(authenticator, name, permissions):
                     df['Item_Name'] = df['NAV'].map(map_name).fillna("Unknown Item")
                     mask_unknown = df['Item_Name'] == "Unknown Item"
                     df.loc[mask_unknown, 'Item_Name'] = "Item " + df.loc[mask_unknown, 'NAV'].astype(str)
-                    if rpt == 'AEON' or rpt == 'TFP':
-                        mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ', 'SIMPLY '))
-                        mask_is_egg = df['Item_Name'].astype(str).str.upper().str.contains('SELENIUM EGG MYS PAPER TRAY', na=False)
+                    # if rpt == 'AEON' or rpt == 'TFP':
+                    #     mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ', 'SIMPLY '))
+                    #     mask_is_egg = df['Item_Name'].astype(str).str.upper().str.contains('SELENIUM EGG MYS PAPER TRAY','Hearty Omega 3 Fresh Egg MYS','Hearty Omega 3 Fresh Egg MYS Ea 10pcs', na=False)
     
-                        # Exclude all SN/Dry items EXCEPT Selenium Egg
+                    #     # Exclude all SN/Dry items EXCEPT Selenium Egg
+                    #     df = df[~mask_is_sn | mask_is_egg]
+                    # elif rpt == 'AEON DF' or rpt == 'TFP DF':
+                    #     mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ','SIMPLY NATURAL ','ZENXIN ORGANIC ROLLED OATS (TWIN PACK)','ZENXIN ORG EXTRA VIRGIN OIL 500ML','ZENXIN ORGANIC ROLLED OATS'))
+                    #     mask_not_egg = ~df['Item_Name'].astype(str).str.upper().str.contains('SELENIUM EGG MYS PAPER TRAY','Hearty Omega 3 Fresh Egg MYS','Hearty Omega 3 Fresh Egg MYS Ea 10pcs', na=False)
+                    #     df = df[mask_is_sn & mask_not_egg]
+                    egg_pattern = r'SELENIUM EGG MYS PAPER TRAY|HEARTY OMEGA 3 FRESH EGG MYS|JUMBO PREMIUM EGG MYS|LIT CUTIE FIRST BORN FRESH EGG MYS|LOW CHOLESTEROL EGG MYS|SUNSHINE EGG FUJI WHITE L SIZE|SUNSHINE EGG MYS'
+
+                    if rpt in ['AEON', 'TFP']:
+                        mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ', 'SIMPLY '))
+                        mask_is_egg = df['Item_Name'].astype(str).str.upper().str.contains(egg_pattern, na=False, regex=True)
+
+                        # Exclude SN/Dry items EXCEPT egg items
                         df = df[~mask_is_sn | mask_is_egg]
-                    elif rpt == 'AEON DF' or rpt == 'TFP DF':
-                        mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith(('SN ', 'SNBG ','SIMPLY NATURAL ','ZENXIN ORGANIC ROLLED OATS (TWIN PACK)','ZENXIN ORG EXTRA VIRGIN OIL 500ML','ZENXIN ORGANIC ROLLED OATS'))
-                        mask_not_egg = ~df['Item_Name'].astype(str).str.upper().str.contains('SELENIUM EGG MYS PAPER TRAY', na=False)
+
+                    elif rpt in ['AEON DF', 'TFP DF']:
+                        mask_is_sn = df['Item_Name'].astype(str).str.upper().str.startswith((
+                            'SN ', 'SNBG ', 'SIMPLY NATURAL ', 
+                            'ZENXIN ORGANIC ROLLED OATS (TWIN PACK)', 
+                            'ZENXIN ORG EXTRA VIRGIN OIL 500ML', 
+                            'ZENXIN ORGANIC ROLLED OATS'
+                        ))
+                        mask_not_egg = ~df['Item_Name'].astype(str).str.upper().str.contains(egg_pattern, na=False, regex=True)
+                        
+                        # Include SN items but EXCLUDE egg items
                         df = df[mask_is_sn & mask_not_egg]
                     
                     df['Item_Name'] = df['NAV'].map(map_name).fillna("Unknown Item")
@@ -1574,7 +1598,7 @@ def main_app_interface(authenticator, name, permissions):
         st.subheader(f"📥 Raw Sales Transactions Export — {rpt}")
 
         # 1. Load active URLs directly (Single unified Sales and DB sheets)
-        url_sales = urls['s']
+        url_sales = urls['sa']
         url_db = urls['db'] if 'db' in urls else None
         url_dist = urls['d']
         url_dist2 = urls.get('d2')
@@ -1614,8 +1638,9 @@ def main_app_interface(authenticator, name, permissions):
                         nav_code = str(row.get('NAV', '')).strip()
                         desc = str(map_name.get(nav_code, row.get('Name', ''))).upper()
 
-                        # Exception rule: Selenium Egg belongs to Vege category
-                        if 'SELENIUM EGG MYS PAPER TRAY' in desc:
+                        # Exception rule: Egg items belong to Vege category
+                        egg_keywords = ('SELENIUM EGG MYS PAPER TRAY', 'HEARTY OMEGA 3 FRESH EGG MYS','JUMBO PREMIUM EGG MYS','LIT CUTIE FIRST BORN FRESH EGG MYS','LOW CHOLESTEROL EGG MYS','SUNSHINE EGG FUJI WHITE L SIZE','SUNSHINE EGG MYS')
+                        if any(k in desc for k in egg_keywords):
                             return "Vege"
 
                         dry_prefixes = ('SN ', 'SNBG ', 'SIMPLY ', 'SIMPLY NATURAL ', 'ZENXIN ORGANIC ROLLED OATS', 'ZENXIN ORG EXTRA VIRGIN')
